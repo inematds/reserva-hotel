@@ -1,0 +1,46 @@
+{
+  "nome": "Pousada Vista da Serra Teste",
+  "token": "segredo-teste",
+  "ical_segredo": "ical-teste",
+  "checkin_hora": "14:00",
+  "checkout_hora": "11:00",
+  "janela_dias": 365,
+  "cancelamento_gratis_dias": 7,
+  "sinal_pct": 30,
+  "sinal_instrucoes": "Pix para a chave pousada@exemplo.com em até 24 horas.",
+  "desconto_direto_pct": 10,
+  "beneficio_direto": "café da manhã incluso e late check-out sujeito a disponibilidade",
+  "pacote_baixa": {"noites": 3, "pagas": 2},
+  "lembrete_dias": 3,
+  "pos_estadia_dias": 2,
+  "tipos": [
+    {"id": "standard", "nome": "Standard", "unidades": 3, "adultos_max": 2, "criancas_max": 1, "ocupacao_base": 2, "tarifa_base": 300.00, "pessoa_extra": 80.00},
+    {"id": "suite", "nome": "Suíte com vista", "unidades": 2, "adultos_max": 3, "criancas_max": 2, "ocupacao_base": 2, "tarifa_base": 450.00, "pessoa_extra": 100.00},
+    {"id": "chale", "nome": "Chalé", "unidades": 1, "adultos_max": 4, "criancas_max": 2, "ocupacao_base": 2, "tarifa_base": 289.85, "pessoa_extra": 60.00}
+  ],
+  "quartos": [
+    {"id": "101", "tipo": "standard"},
+    {"id": "102", "tipo": "standard"},
+    {"id": "103", "tipo": "standard"},
+    {"id": "201", "tipo": "suite"},
+    {"id": "202", "tipo": "suite"}
+  ],
+  "temporadas": [
+    {"id": "feriado-nov", "nome": "Proclamação da República", "tipo": "feriado", "de": "2026-11-14", "ate": "2026-11-15", "precos": {"standard": 380.00, "suite": 560.00}},
+    {"id": "baixa-nov", "nome": "Baixa de novembro", "tipo": "baixa", "de": "2026-11-01", "ate": "2026-11-30", "precos": {"standard": 240.00, "suite": 360.00}},
+    {"id": "natal", "nome": "Natal Luz", "tipo": "alta", "de": "2026-12-20", "ate": "2027-01-05", "precos": {"standard": 480.00, "suite": 700.00}}
+  ],
+  "estadias_minimas": [
+    {"de": "2026-11-14", "ate": "2026-11-15", "noites": 2},
+    {"de": "2026-12-20", "ate": "2027-01-05", "noites": 3}
+  ],
+  "fechamentos": [
+    {"de": "2026-10-26", "ate": "2026-10-28", "motivo": "reforma"}
+  ],
+  "faq": [
+    {"id": "cafe", "perguntas": ["o café da manhã está incluso", "tem café da manhã"], "resposta": "O café da manhã é servido das 7h às 10h e está incluso na diária."},
+    {"id": "pet", "perguntas": ["aceitam pet", "posso levar cachorro"], "resposta": "Aceitamos pets de até 10 kg mediante taxa de R$ 50 por estadia."},
+    {"id": "estacionamento", "perguntas": ["tem estacionamento"], "resposta": "Temos estacionamento gratuito para hóspedes."},
+    {"id": "horarios", "perguntas": ["qual o horário do check-in", "que horas é o check-out"], "resposta": "Check-in a partir das 14h e check-out até as 11h."}
+  ]
+}
