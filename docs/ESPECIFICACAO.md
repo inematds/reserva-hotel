@@ -23,6 +23,7 @@ O que o v1 **não** faz está na seção 14.
 - `./reserva raiox --dados DIR --mes AAAA-MM --acompanhamento ARQ` (seção 12).
 - `./reserva backup` / `./reserva restaurar` (seção 17).
 - Integrações externas **só** por variáveis de ambiente (seções 18–19). Sem elas, nenhuma chamada de rede sai do processo. Nenhuma URL externa, chave ou token escrito no código.
+- O servidor atende **várias conexões ao mesmo tempo** (ex.: `ThreadingHTTPServer`); os testes de concorrência abrem 10 conexões simultâneas. A criação de reserva é serializada (trava ou transação) para garantir a regra "sem overbooking" da seção 3.
 
 ## 2. `pousada.json`
 
@@ -67,14 +68,14 @@ O que o v1 **não** faz está na seção 14.
 - **Estadia válida** (senão **422** `{"erro": <código>}`), na ordem: `formato` (datas `AAAA-MM-DD`, `adultos`/`criancas` inteiros); `datas` (`checkout ≤ checkin`; `checkin < hoje`; `checkin > hoje + janela_dias`); `tipo` (tipo inexistente nas rotas que recebem tipo → **404**; tipo inativo → 422 `tipo`); `capacidade` (`adultos < 1`, `adultos > adultos_max`, `criancas < 0`, `criancas > criancas_max`); `fechado` (alguma noite da estadia cai num fechamento); `estadia_minima` (alguma noite da estadia cai num período de `estadias_minimas` e `noites` é menor que o maior `noites` desses períodos → `{"erro": "estadia_minima", "minimo": M}`). Check-in **hoje** é válido (não depende da hora).
 - **Disponível** = `Livres(T, N) ≥ 1` para **toda** noite da estadia. Reserva sem isso → **409** `{"erro": "sem_disponibilidade"}`.
 - **Sem overbooking:** com `k` unidades livres e mais de `k` pedidos simultâneos para o mesmo tipo e as mesmas noites, exatamente `k` recebem 201 e os demais 409 (vale para `k = 1`: a última unidade).
-- Status de reserva: `confirmada` (criada), `hospedada` (check-in feito), `finalizada` (check-out feito), `cancelada`, `no_show`. Só `confirmada` e `hospedada` ocupam noites; `no_show` e `cancelada` liberam todas as noites da estadia; `finalizada` libera as noites a partir do check-out real.
+- Status de reserva: `confirmada` (criada), `hospedada` (check-in feito), `finalizada` (check-out feito), `cancelada`, `no_show`. Só `confirmada` e `hospedada` ocupam noites; `no_show` e `cancelada` liberam todas as noites da estadia; `finalizada` libera as noites `≥` a data do relógio no momento do check-out (check-out antecipado libera o restante). **Os campos `checkin`, `checkout` e `noites` da reserva nunca mudam**: a data real do check-out só vale para `Livres` (aqui) e para o calendário iCal (seção 11); pós-estadia (seção 9), listagens e `/api/dia` (seção 6) e Raio-X (seção 12) usam o `checkout` gravado na reserva.
 - **Origem** da reserva: `direta` (chat web / WhatsApp), `balcao` (equipe), `booking`, `airbnb`, `outra`. **Canal próprio** = `direta` + `balcao`.
 
 ## 4. Tarifas (cálculo do total)
 
 Para uma estadia de tipo `T`, `adultos`, `criancas` e `origem`:
 
-1. **Diária(T, N)** = preço da **primeira temporada na ordem de cadastro** com `de ≤ N ≤ ate` **e** preço para `T` em `precos`; se nenhuma → `tarifa_base` de `T`. (Temporada que cobre a noite mas não tem preço para `T` é ignorada para `T`.)
+1. **Diária(T, N)** = preço da **primeira temporada na ordem de cadastro** com `de ≤ N ≤ ate` **e** preço para `T` em `precos`; se nenhuma → `tarifa_base` de `T`. (Temporada que cobre a noite mas não tem preço para `T` é **ignorada** para `T`: nesse caso `detalhe.diarias[].temporada` é `null` e a noite **não** conta como noite de temporada baixa no item 3 — ex.: chalé sem preço na baixa paga `tarifa_base` e não ganha pacote.)
 2. **Pessoa extra** = `pessoa_extra(T) × max(0, adultos + criancas − ocupacao_base(T)) × noites`.
 3. **Pacote de baixa temporada**: `nb` = nº de noites da estadia cuja diária veio de temporada `tipo: "baixa"`; `k = (nb ÷ pacote_baixa.noites, divisão inteira) × (pacote_baixa.noites − pacote_baixa.pagas)`; **pacote** = soma das `k` **menores** diárias dessas noites (0 se `k = 0` ou `pacote_baixa` null).
 4. **Subtotal** = Σ diárias + pessoa extra − pacote.
@@ -90,7 +91,7 @@ Exemplo (fixture dos testes, 2 adultos, standard R$ 300, desconto 10 %, sinal 30
 
 ## 5. Autenticação
 
-Rotas marcadas **[R]** (equipe) exigem header `X-Token` igual a `pousada.json.token`; sem ele ou errado → **401**. Rotas públicas: `/`, `/equipe` (página; os dados vêm de rotas [R]), `/api/saude`, `GET /api/tipos`, `GET /api/disponibilidade`, `POST /api/mensagens`, `/ical/{ical_segredo}/…`. Webhooks têm segredo próprio (seções 18 e 19).
+Rotas marcadas **[R]** (equipe) exigem header `X-Token` igual a `pousada.json.token`; sem ele ou errado → **401**. O token é checado **antes** de qualquer validação do corpo ou dos parâmetros (corpo vazio sem token → 401, nunca 400/422). Rotas públicas: `/`, `/equipe` (página; os dados vêm de rotas [R]), `/api/saude`, `GET /api/tipos`, `GET /api/disponibilidade`, `POST /api/mensagens`, `/ical/{ical_segredo}/…`. Webhooks têm segredo próprio (seções 18 e 19).
 
 ## 6. API HTTP (JSON, UTF-8)
 
@@ -99,13 +100,13 @@ Rotas marcadas **[R]** (equipe) exigem header `X-Token` igual a `pousada.json.to
 | `GET /api/saude` | — | 200 `{"ok": true, "versao": "<conteúdo de VERSION>"}` |
 | `GET /api/tipos` | — | 200 `{"tipos": [{id, nome, unidades, adultos_max, criancas_max, ocupacao_base, tarifa_base, pessoa_extra}]}` só ativos, ordem de cadastro; `unidades` = efetivo (seção 3) |
 | `GET /api/disponibilidade?checkin=D&checkout=D&adultos=N[&criancas=N][&origem=O]` | — | 200 `{checkin, checkout, noites, adultos, criancas, origem, "opcoes": [{tipo, nome, disponiveis, total, sinal, beneficio, detalhe}]}`; só tipos ativos em que os hóspedes cabem (`adultos ≤ adultos_max` e `criancas ≤ criancas_max`) e com `disponiveis ≥ 1`, ordem de cadastro — nenhum cabe → `opcoes: []` com 200; `origem` padrão `direta`; `beneficio` = `beneficio_direto` para canal próprio, `null` para OTA. Aqui só valem as checagens `formato`, `datas`, `fechado` e `estadia_minima` da seção 3 (→ 422); `adultos < 1` ou `criancas < 0` → 422 `capacidade`; a capacidade por tipo **filtra**, não dá erro |
-| `POST /api/hospedes` [R] | `{nome, telefone, email?, documento?, consentimento_marketing?: bool}` | 201 `{id}`; telefone já cadastrado → 200 com o mesmo `{id}`; telefone inválido → 400 |
-| `GET /api/hospedes?busca=T` [R] | — | 200 `{"hospedes": [{id, nome, telefone, email, documento, consentimento_marketing, nao_contatar}]}`; `busca` casa parte do nome (sem acento, sem caixa) ou dígitos do telefone; sem `busca` = todos, ordem de `id` |
+| `POST /api/hospedes` [R] | `{nome, telefone, email?, documento?, consentimento_marketing?: bool}` | 201 `{id}`; telefone já cadastrado → 200 com o mesmo `{id}` (sem alterar o cadastro existente); telefone inválido → 400 |
+| `GET /api/hospedes?busca=T` [R] | — | 200 `{"hospedes": [{id, nome, telefone, email, documento, consentimento_marketing, nao_contatar}]}`; `busca` casa parte do nome (sem acento, sem caixa) ou dígitos do telefone; sem `busca` = todos; sempre em ordem de `id` |
 | `PUT /api/hospedes/{id}` [R] | campos parciais | 200 com o hóspede; telefone inválido → 400; telefone de outro → 409; inexistente → 404 |
 | `GET /api/hospedes/{id}/dados` [R] | — | 200 `{hospede, reservas, mensagens}` (seção 13) |
 | `DELETE /api/hospedes/{id}` [R] | — | 204; anonimiza (seção 13) |
 | `POST /api/reservas` [R] | `{hospede_id, tipo, checkin, checkout, adultos, criancas?, origem?, total?, observacoes?}` | 201 com a **reserva**; `origem` padrão `balcao`; sem unidade → 409; inválida → 422; hóspede ou tipo inexistente → 404 |
-| `GET /api/reservas?de=D&ate=D` [R] | — | 200 `{"reservas": [...]}` com alguma noite em `[de, ate]` (`ate` inclusivo), **todos os status**, ordem `checkin`, depois `id`. Filtros alternativos: `?checkin=D` (reservas com `checkin = D`), `?checkout=D`, `?hospede_id=N`; sem filtro = todas |
+| `GET /api/reservas?de=D&ate=D` [R] | — | 200 `{"reservas": [...]}` com alguma noite em `[de, ate]` (`ate` inclusivo), **todos os status**, ordem `checkin`, depois `id`. Filtros alternativos: `?checkin=D` (reservas com `checkin = D`), `?checkout=D`, `?hospede_id=N`; sem filtro = todas. Todos os filtros devolvem **todos os status** na **mesma ordem** (`checkin`, depois `id`) |
 | `GET /api/reservas/{id}` [R] | — | 200 reserva; 404 |
 | `PUT /api/reservas/{id}` [R] | `{hospede_id?, total?, observacoes?}` | 200 reserva; `total` novo recalcula `sinal` (canal próprio) e marca `detalhe.informado` |
 | `POST /api/reservas/{id}/cancelar` [R] | — | 200 `{status: "cancelada", gratis: bool}` (seção 10); dispara a lista de espera (seção 8); status diferente de `confirmada`/`hospedada` → 409 |
@@ -116,8 +117,8 @@ Rotas marcadas **[R]** (equipe) exigem header `X-Token` igual a `pousada.json.to
 | `GET /api/dia?data=D` [R] | — | 200 `{data, "chegadas": [reservas com checkin = D e status confirmada\|hospedada], "saidas": [checkout = D e status hospedada\|finalizada], "hospedados": n}` (`hospedados` = reservas `hospedada` com `checkin ≤ D < checkout`); listas em ordem de `id` |
 | `GET /api/ocupacao?mes=AAAA-MM` [R] | — | 200 `{mes, unidades, "dias": [{data, ocupadas, bloqueadas, livres, "por_tipo": {<tipo>: {ocupadas, bloqueadas, livres}}}]}` um item por noite do mês |
 | `POST /api/espera` [R] | `{hospede_id, tipo, checkin, checkout, adultos, criancas?}` | 201 `{id}`; 404/422 como a reserva (sem checar disponibilidade) |
-| `GET /api/espera` [R] | — | 200 `{"espera": [{id, hospede_id, tipo, checkin, checkout, status}]}`; `status` ∈ `pendente, ofertado, reservado` |
-| `POST /api/tarefas/rodar` [R] | `{agora?}` (padrão = relógio do processo) | 200 `{"enviadas": n, "reenviadas": n}`; idempotente: rodar de novo no mesmo instante → `enviadas: 0` |
+| `GET /api/espera` [R] | — | 200 `{"espera": [{id, hospede_id, tipo, checkin, checkout, status}]}` em ordem de `id`; `status` ∈ `pendente, ofertado, reservado` |
+| `POST /api/tarefas/rodar` [R] | `{agora?}` (padrão = relógio do processo; informado = vale só nesta rodada, com `hoje` = data de `agora`) | 200 `{"enviadas": n, "reenviadas": n}`; `enviadas` = mensagens **novas criadas** nesta rodada (lembrete e pós-estadia), contadas mesmo que o envio pela Evolution falhe e elas fiquem `pendente`; `reenviadas` = seção 18; idempotente: rodar de novo no mesmo instante → `enviadas: 0` |
 | `GET /api/saida` [R] | — | 200 `{"mensagens": [{id, tipo, telefone, hospede_id, reserva_id, texto, status}]}` em ordem de criação. `tipo` ∈ `lembrete, espera, pos_estadia, humano` |
 | `POST /api/mensagens` | `{telefone, texto}` | 200 `{"respostas": [texto, ...]}` (seção 7) |
 | `GET /api/atendimento-humano` [R] | — | 200 `{"fila": [{id, telefone, nome, motivo, prioridade, status}]}` só os `aberto`; `prioridade` sempre `normal` no v1 |
@@ -128,7 +129,7 @@ Rotas marcadas **[R]** (equipe) exigem header `X-Token` igual a `pousada.json.to
 
 **Reserva** (objeto): `{id, status, hospede_id, nome, telefone, tipo, quarto, checkin, checkout, noites, adultos, criancas, origem, total, sinal, sinal_pago, chegada_confirmada, pre_checkin, observacoes, gratis, ical_uid, detalhe, criada_em}`. `nome`/`telefone` vêm do hóspede (`null` sem hóspede); `quarto` `null` até o check-in; `gratis` `null` até cancelar; `pre_checkin` `null` até o hóspede responder (seção 9); `criada_em` = `AAAA-MM-DDTHH:MM` do relógio.
 
-Telefone: aceita com ou sem `+55`, espaços, parênteses e hífen; normaliza para `+55DDNNNNNNNNN` (DDD + 8 ou 9 dígitos). Fora disso → inválido. Todas as respostas usam o telefone normalizado.
+Telefone: aceita com ou sem `+55`, espaços, parênteses e hífen; normaliza para `+55DDNNNNNNNNN` (DDD + 8 ou 9 dígitos). Regra por contagem de dígitos (depois de tirar tudo que não é dígito): **10 ou 11** dígitos = DDD + número; **12 ou 13** dígitos começando com `55` = país + DDD + número; qualquer outra quantidade → inválido (ex.: `(54) 99999-0001`, `+55 54 99999 0001` e `54 3333-4444` valem; `123`, `abc` e `+55 54 9999` não). Todas as respostas usam o telefone normalizado.
 
 Dinheiro em texto de conversa: `R$ 1.234,56` (ponto de milhar, vírgula decimal, sempre 2 casas). Datas em texto de conversa e avisos: `DD/MM`.
 
@@ -141,7 +142,7 @@ O texto é normalizado (minúsculas, sem acento) para decidir; datas e números 
 3. **Fluxo em andamento** (abaixo) consome a mensagem. Dentro de qualquer fluxo, o texto `voltar` sai do fluxo sem efeito (resposta contém `ok`); a mensagem seguinte é tratada fora de fluxo.
 4. **Resposta a pendência** — se a última mensagem de saída para o telefone foi `lembrete` (sem resposta ainda): `1`/`sim`/`confirmo` → `chegada_confirmada: true`, resposta contém `confirmad` e `documento` e abre o fluxo **pré-check-in**; `2`/`cancelar`/`nao` → cancelamento da reserva do lembrete pela política (seção 10): grátis → cancela, resposta contém `cancelad`; fora do prazo → resposta contém `sinal` e `sim` e abre o fluxo **confirmar cancelamento**. Se foi `espera` (sem resposta): `1`/`sim` → cria a reserva (origem `direta`) se ainda disponível (resposta contém `reservad`), senão resposta contém `indispon` e a espera volta a `pendente`.
 5. **Cancelar** — contém `cancelar`: nenhuma reserva ativa (`confirmada`/`hospedada` com `checkout ≥ hoje`) no telefone → contém `nenhuma reserva`; senão lista `N) #<id> DD/MM a DD/MM <nome do tipo>` e pede o número (fluxo **cancelar**).
-6. **Minha reserva** — contém `minha reserva` ou `minhas reservas`: lista as reservas ativas do telefone, uma linha `#<id> DD/MM a DD/MM <nome do tipo> — R$ <total> (sinal pago|sinal pendente)`; nenhuma → resposta contém `nenhuma reserva`.
+6. **Minha reserva** — contém `minha reserva` ou `minhas reservas`: lista as reservas ativas do telefone (mesma definição da regra 5), uma linha `#<id> DD/MM a DD/MM <nome do tipo> — R$ <total> (sinal pago|sinal pendente)`; nenhuma → resposta contém `nenhuma reserva`.
 7. **Reservar / cotar** — contém `reservar`, `reserva`, `disponibilidade`, `vaga`, `quanto`, `diaria` ou `hospedar`: fluxo **cotar**; resposta contém `datas`.
 8. **FAQ** — palavras significativas (≥ 3 letras, fora de artigos/preposições/pronomes comuns) de alguma pergunta do FAQ: se ≥ 60 % delas aparecem no texto, responde **exatamente** a `resposta` daquele item (só ela, uma mensagem). Mais de um item casa → o de maior %; empate → o primeiro do FAQ.
 9. **Não entendi** — resposta contém `não entendi` e oferece `atendente`. Na **segunda** seguida sem entender, entra na fila humana automaticamente.
@@ -165,8 +166,8 @@ Ao liberar noites de um tipo (cancelamento pela API, pela conversa ou por reimpo
 ## 9. Ciclo da estadia (`POST /api/tarefas/rodar`)
 
 - **Lembrete + pré-check-in:** toda reserva `confirmada` com hóspede, `checkin − lembrete_dias ≤ hoje < checkin` (hoje = data de `agora`) e ainda sem lembrete → mensagem `tipo: "lembrete"` com `reserva_id`. Texto contém `DD/MM` do check-in, o nome do tipo, `checkin_hora`, `1` (confirmar chegada e enviar documentos) e `2` (cancelar); se `sinal_pago` é falso e a origem é canal próprio, contém a palavra `sinal`; senão **não** contém. Uma vez por reserva. Reservas importadas (sem hóspede) não recebem.
-- **Pós-estadia:** toda reserva `finalizada` com hóspede, `checkout + pos_estadia_dias ≤ hoje`, ainda sem envio, hóspede com `consentimento_marketing: true` → mensagem `tipo: "pos_estadia"`; texto contém `reservar direto` e o `beneficio_direto`. Uma vez por reserva.
-- Hóspede `nao_contatar` nunca recebe. Lembrete **não** depende de `consentimento_marketing` (execução do contrato, LGPD art. 7º, V); pós-estadia **depende** (marketing, art. 7º, I).
+- **Pós-estadia:** toda reserva `finalizada` com hóspede, `checkout + pos_estadia_dias ≤ hoje` (`checkout` = o gravado na reserva, não a data real de um check-out antecipado), ainda sem envio, hóspede com `consentimento_marketing: true` → mensagem `tipo: "pos_estadia"`; texto contém `reservar direto` e o `beneficio_direto`. Uma vez por reserva.
+- Hóspede `nao_contatar` nunca recebe: a mensagem **não é criada** (não aparece em `/api/saida` nem conta em `enviadas`). Lembrete **não** depende de `consentimento_marketing` (execução do contrato, LGPD art. 7º, V); pós-estadia **depende** (marketing, art. 7º, I).
 - **Sinal:** política escrita só. A equipe marca `sinal_pago` à mão (`POST /api/reservas/{id}/sinal`); nada expira sozinho.
 - **Check-in / check-out / no-show:** só pela equipe (seção 6). Check-in atribui o quarto.
 
@@ -176,7 +177,7 @@ Ao liberar noites de um tipo (cancelamento pela API, pela conversa ou por reimpo
 
 ## 11. iCal (OTAs)
 
-**Exportação** — `GET /ical/{ical_segredo}/tipo/{tipo}.ics` e `GET /ical/{ical_segredo}/quarto/{quarto}.ics` (segredo errado ou id inexistente → 404). `Content-Type: text/calendar`, linhas terminadas em CRLF. Conteúdo: `BEGIN:VCALENDAR`, `VERSION:2.0`, `PRODID:-//reserva-hotel//PT`, um `VEVENT` por **sequência contígua** de noites indisponíveis, com `UID:<tipo-ou-quarto>-<AAAAMMDD da primeira noite>@reserva-hotel`, `DTSTAMP`, `DTSTART;VALUE=DATE:<AAAAMMDD da primeira noite>`, `DTEND;VALUE=DATE:<AAAAMMDD do dia seguinte à última noite>` (exclusivo, RFC 5545), `SUMMARY:Indisponível`, `END:VEVENT`; `END:VCALENDAR`. Noite indisponível: no calendário do **tipo**, `Livres(T, N) = 0`; no calendário do **quarto**, noites em que o tipo está lotado **ou** o quarto está bloqueado **ou** há reserva ativa (`confirmada`/`hospedada`) com esse `quarto` atribuído (pelo check-in ou pela importação por quarto). Janela: de hoje até `hoje + janela_dias`.
+**Exportação** — `GET /ical/{ical_segredo}/tipo/{tipo}.ics` e `GET /ical/{ical_segredo}/quarto/{quarto}.ics` (segredo errado ou id inexistente → 404). `Content-Type: text/calendar`, linhas terminadas em CRLF. Conteúdo: `BEGIN:VCALENDAR`, `VERSION:2.0`, `PRODID:-//reserva-hotel//PT`, um `VEVENT` por **sequência contígua** de noites indisponíveis, **em ordem cronológica**, cada um com as propriedades **nesta ordem, uma por linha**: `BEGIN:VEVENT`, `UID:<tipo-ou-quarto>-<AAAAMMDD da primeira noite>@reserva-hotel`, `DTSTAMP:<AAAAMMDDTHHMMSSZ do relógio do processo>`, `DTSTART;VALUE=DATE:<AAAAMMDD da primeira noite>`, `DTEND;VALUE=DATE:<AAAAMMDD do dia seguinte à última noite>` (exclusivo, RFC 5545; vem **imediatamente** depois de `DTSTART`), `SUMMARY:Indisponível`, `END:VEVENT`; por fim `END:VCALENDAR`. Noite indisponível: no calendário do **tipo**, `Livres(T, N) = 0`; no calendário do **quarto**, noites em que o tipo está lotado **ou** o quarto está bloqueado **ou** há reserva ativa (`confirmada`/`hospedada`) com esse `quarto` atribuído (pelo check-in ou pela importação por quarto). Janela: de hoje até `hoje + janela_dias`.
 
 **Importação** — `POST /api/ical/importar` [R] `{"origem": "booking"|"airbnb"|"outra", "tipo", "quarto"?, "ics": "<texto do arquivo>"}` → 200 `{"importadas": n, "canceladas": n, "conflitos": [ids]}`.
 - Validação: `origem` fora de `booking`/`airbnb`/`outra` → 422; `tipo` inexistente → 404; `quarto` informado precisa ser do `tipo` (senão 422).
@@ -190,7 +191,7 @@ Ao liberar noites de um tipo (cancelamento pela API, pela conversa ou por reimpo
 
 `GET /api/raiox?mes=AAAA-MM` → `{"pacote": "hotel", "mes": "AAAA-MM", "valores": {...}, "indicadores": {...}}`. Em `valores` só **ids do pacote `hotel`** (`raio-x-margem/setores/hotel.js`); em `indicadores`, números úteis ao dono que não são entradas do pacote. Percentuais com 1 casa, reais com 2, inteiros inteiros; arredondamento meio para cima.
 
-Definições (reservas "do mês" = `checkin` no mês e status ∈ `confirmada, hospedada, finalizada`; "noites no mês" = noites da estadia com data dentro do mês):
+Definições (reservas "do mês" = `checkin` no mês e status ∈ `confirmada, hospedada, finalizada`; "noites no mês" = noites da estadia — `checkin` … `checkout − 1` **gravados na reserva**, não a data real de um check-out antecipado — com data dentro do mês):
 
 - `uhs` = Σ unidades efetivas dos tipos ativos.
 - `reservas_mes` = nº de reservas do mês (importadas incluídas).
@@ -234,12 +235,12 @@ Pagamento (Pix/PSP, cartão, cobrança automática do sinal ou de no-show) e exp
 | `GET /api/temporadas` | — | 200 `{"temporadas": [{id, nome, tipo, de, ate, precos}]}` na ordem de cadastro |
 | `POST /api/temporadas` | `{id, nome, tipo, de, ate, precos}` | 201 (entra no **fim** da ordem); `id` repetido → 409; `tipo` fora de `alta\|baixa\|feriado` ou `ate < de` → 422 |
 | `DELETE /api/temporadas/{id}` | — | 204 |
-| `GET /api/estadias-minimas` / `POST` `{de, ate, noites}` / `DELETE /api/estadias-minimas/{id}` | | 200 `{"estadias_minimas": [{id, de, ate, noites}]}` / 201 `{id}` / 204 |
-| `GET /api/fechamentos` / `POST` `{de, ate, motivo}` / `DELETE /api/fechamentos/{id}` | | 200 `{"fechamentos": [{id, de, ate, motivo}]}` / 201 `{id, conflitos}` / 204 |
-| `GET /api/bloqueios[?quarto=Q]` | — | 200 `{"bloqueios": [{id, quarto, tipo, de, ate, motivo}]}` |
+| `GET /api/estadias-minimas` / `POST` `{de, ate, noites}` / `DELETE /api/estadias-minimas/{id}` | | 200 `{"estadias_minimas": [{id, de, ate, noites}]}` em ordem de `id` (os semeados do `pousada.json` vêm primeiro, na ordem do arquivo) / 201 `{id}` / 204 |
+| `GET /api/fechamentos` / `POST` `{de, ate, motivo}` / `DELETE /api/fechamentos/{id}` | | 200 `{"fechamentos": [{id, de, ate, motivo}]}` em ordem de `id` / 201 `{id, conflitos}` / 204 |
+| `GET /api/bloqueios[?quarto=Q]` | — | 200 `{"bloqueios": [{id, quarto, tipo, de, ate, motivo}]}` em ordem de `id` |
 | `POST /api/bloqueios` | `{quarto, de, ate, motivo}` **ou** `{tipo, de, ate, motivo}` | 201 `{id, conflitos}`; quarto/tipo inexistente → 422 |
 | `DELETE /api/bloqueios/{id}` | — | 204 e libera |
-| `GET /api/faq` / `POST /api/faq` `{perguntas, resposta}` / `DELETE /api/faq/{id}` | | 200 `{"faq": [{id, perguntas, resposta}]}` / 201 `{id}` (o bot passa a usar na hora) / 204 (para de usar na hora) |
+| `GET /api/faq` / `POST /api/faq` `{perguntas, resposta}` / `DELETE /api/faq/{id}` | | 200 `{"faq": [{id, perguntas, resposta}]}` em ordem de cadastro (os semeados mantêm o `id` do `pousada.json`, na ordem do arquivo; os criados pela API ganham `id` gerado e entram no fim) / 201 `{id}` (o bot passa a usar na hora) / 204 (para de usar na hora) |
 
 `conflitos` (fechamento e bloqueio) = ids das reservas ativas que, em alguma noite do período, ficam com `ocupadas + bloqueadas > unidades` do tipo, mais (bloqueio de quarto) as reservas `hospedada` naquele quarto no período. Nada é cancelado sozinho. Bloqueio e fechamento tiram as noites da disponibilidade (seção 3) e do calendário iCal (seção 11).
 
@@ -272,7 +273,7 @@ Variáveis: `TELEGRAM_API_URL` (ex.: a URL base da API do Telegram), `TELEGRAM_T
 **Atendimento humano** (`/api/atendimento-humano` só com os `aberto`):
 - Ao abrir (pedido de atendente, 2º "não entendi"): manda ao grupo um texto com `#<id>`, telefone, nome (se houver), motivo e a última mensagem do hóspede. Guarda o `message_id`.
 - Enquanto o atendimento do telefone estiver `aberto`, o bot **não responde** sozinho (`respostas: []`); cada mensagem do hóspede vai ao grupo como `#<id> <nome ou telefone>: <texto>`, em resposta (`reply_to_message_id`) à mensagem de abertura.
-- `POST /webhook/telegram` exige header `X-Telegram-Bot-Api-Secret-Token: {TELEGRAM_SEGREDO}` (senão 401). Só aceita updates de `message.chat.id == TELEGRAM_CHAT_ID`; os outros são ignorados (200, sem efeito).
+- `POST /webhook/telegram` exige header `X-Telegram-Bot-Api-Secret-Token: {TELEGRAM_SEGREDO}` (senão 401). Só aceita updates de `message.chat.id == TELEGRAM_CHAT_ID` (comparados como texto: o update traz número, a variável traz texto); os outros são ignorados (200, sem efeito).
 - Mensagem da equipe que é resposta (`reply_to_message.message_id`) a uma mensagem do atendimento `#id` → o texto vai ao hóspede (caixa de saída `tipo: "humano"`, e pela Evolution se configurada).
 - Comandos: `/responder <id> <texto>` (o mesmo, sem precisar responder em cima); `/encerrar <id>` → status `encerrado`, o bot volta a responder aquele telefone; `/fila` → lista dos abertos (cada um com `#id`); `/chegadas [AAAA-MM-DD]` (padrão: hoje) → texto com `Chegadas DD/MM:` seguido de uma linha `#<id> <nome ou origem> — <nome do tipo> (<quarto ou "sem quarto">)` por chegada do dia (seção 6, `/api/dia`), depois `Saídas DD/MM:` e as saídas; sem nenhuma, a palavra `nenhuma` na seção; `/ocupacao [AAAA-MM]` (padrão: mês de hoje) → primeira linha `Ocupação AAAA-MM: X%` (`indicadores.ocupacao_pct` com 1 casa e vírgula, ex.: `1,2%`), depois uma linha `DD: <ocupadas>/<unidades>` por noite.
 - Pela página da equipe [R]: `POST /api/atendimento-humano/{id}/responder {texto}` e `POST /api/atendimento-humano/{id}/encerrar` fazem o mesmo.

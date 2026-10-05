@@ -13,6 +13,7 @@ Após qualquer compactação ou retomada, releia goal.md, state.md, plan.md e ca
 CICLO: analisar → escolher a próxima ação útil → executar → testar → observar → corrigir → atualizar state/progress → commit no checkpoint → continuar.
 Ordem sugerida: base (serve/PORTA/SQLite/semente/auth) → inventário/disponibilidade → tarifas (Decimal, ROUND_HALF_UP) → reservas/check-in/check-out/no-show/bloqueios → conversa → lembrete/espera/pós-estadia → cancelamento → LGPD → raiox → cadastros/backup → iCal → Evolution → Telegram → Docker/README → páginas.
 Evolution e Telegram: só pelas variáveis de ambiente, testados contra o servidor falso dos testes; nunca chamar API real.
+README: acrescentar a seção "Deploy na VPS" sem remover "Como rodar no seu ambiente".
 Enquanto existir uma próxima ação objetiva, segura e alinhada ao objetivo, execute-a sem esperar nova instrução.
 3 ciclos sem avanço mensurável (nº de testes passando) = parar, registrar em failures.md e me chamar.
 Teste que contradiz a especificação = registrar em failures.md e me chamar; nunca alterar teste ou spec.

@@ -43,7 +43,8 @@ def montar_mes(dados):
     R3 Tres    standard 20→21/11 balcão  216,00 → no-show, sinal não pago
     R4 Quatro  chalé    25→27/11 balcão  521,73 → sinal pago → no-show
     R5 Cinco   standard 28/11→02/12 direta 702,00 (4 noites, 3 em nov → 526,50)
-    R6 Seis    standard 15→16/11 balcão → cancelada grátis (não conta)
+    R6 Seis    standard 17→18/11 balcão 216,00 → cancelada grátis (não conta em nada; 06/10 + 7 = 13/10 ≤ 17/11).
+               (17/11 não cai em estadia mínima nem no bloqueio do 103; 15→16/11 cairia no mínimo de 2 noites de 14–15/11 → 422)
     reservas_mes = 3 (R1, R2, R5); valor_reserva = (432 + 900 + 702) / 3 = 678,00
     faturamento = 432 + 900 + 526,50 = 1858,50; receita_ota = 900; reserva_direta_pct = 958,50 / 1858,50 = 51,6
     noites ocupadas = 3 + 2 + 3 = 8; ocupacao = 8 / 170 = 4,7 %; diaria_media = 1858,50 / 8 = 232,31
@@ -77,7 +78,7 @@ def montar_mes(dados):
     api.post(f"/api/reservas/{r4['id']}/no-show")
     r5 = marca(p5, "2026-11-28", "2026-12-02", "standard", "direta")
     assert r5["total"] == 702.0
-    r6 = marca(p6, "2026-11-15", "2026-11-16", "standard", "balcao")
+    r6 = marca(p6, "2026-11-17", "2026-11-18", "standard", "balcao")
     assert api.post(f"/api/reservas/{r6['id']}/cancelar")[1]["gratis"] is True
     return s, api
 

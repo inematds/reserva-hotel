@@ -103,8 +103,21 @@ class Cliente:
         return r["enviadas"]
 
 
+SERVIDORES = []
+
+
+@pytest.fixture(autouse=True)
+def _parar_servidores():
+    """Para todo Servidor criado no teste, mesmo que uma asserção falhe antes do parar() explícito
+    (evita `reserva serve` órfão quando o teste sobe o servidor fora de try/finally)."""
+    yield
+    while SERVIDORES:
+        SERVIDORES.pop().parar()
+
+
 class Servidor:
     def __init__(self, dados, agora=AGORA, env=None):
+        SERVIDORES.append(self)  # o teardown autouse para todos, mesmo se o teste falhar
         self.dados = dados
         self.agora = agora
         self.env = env or {}

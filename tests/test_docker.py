@@ -34,6 +34,7 @@ def test_env_exemplo_tem_todas_as_variaveis_sem_segredo_real():
 
 def test_readme_explica_deploy():
     r = ler("README.md")
+    assert "Como rodar no seu ambiente" in r      # seção do dono: o implementador acrescenta o deploy sem removê-la
     assert "Deploy na VPS" in r
     for trecho in ("/webhook/evolution/", "MESSAGES_UPSERT", "setWebhook", "secret_token", "./reserva backup", "/ical/"):
         assert trecho in r, trecho

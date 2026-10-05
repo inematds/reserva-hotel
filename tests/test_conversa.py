@@ -76,8 +76,8 @@ def test_reserva_pelo_chat_hospede_conhecido_e_opcao_invalida(api):
     r = api.msg(TEL, "9")
     assert "1) Standard" in r                  # repete as opções
     r = api.msg(TEL, "2")
-    assert "reservad" in norm(r) and "nome" not in norm(r)
-    [a] = api.get("/api/reservas?checkin=2026-10-10")[1]["reservas"]
+    assert "reservad" in norm(r)
+    [a] = api.get("/api/reservas?checkin=2026-10-10")[1]["reservas"]   # criada na hora: telefone conhecido não pede nome
     assert (a["tipo"], a["adultos"], a["criancas"], a["total"]) == ("suite", 2, 1, 990.0)
 
 

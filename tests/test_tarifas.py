@@ -70,9 +70,12 @@ def test_feriado_vence_baixa_pela_ordem_e_nao_entra_no_pacote(api):
 
 
 def test_temporada_sem_preco_para_o_tipo_usa_tarifa_base(api):
-    # chalé não tem preço na baixa: 25→27/11 = 2 × 289,85 = 579,70; balcão −57,97 = 521,73; sinal 156,519 → 156,52
+    # chalé não tem preço na baixa: a temporada é ignorada para ele (seção 4, regra 1 → temporada null, sem pacote):
+    # 25→27/11 = 2 × 289,85 = 579,70; balcão −57,97 = 521,73; sinal 156,519 → 156,52
     o = total(api, "2026-11-25", "2026-11-27", tipo="chale", origem="balcao")
-    assert [d["temporada"] for d in o["detalhe"]["diarias"]] == ["baixa-nov", "baixa-nov"]
+    assert [d["temporada"] for d in o["detalhe"]["diarias"]] == [None, None]
+    # 3 noites: continua sem pacote (as noites não são "de baixa" para o chalé): 3 × 289,85 = 869,55 − 86,955 → 86,96 = 782,59
+    assert total(api, "2026-11-25", "2026-11-28", tipo="chale", origem="balcao")["detalhe"]["pacote_baixa"] == 0
     assert (o["detalhe"]["subtotal"], o["total"], o["sinal"]) == (579.7, 521.73, 156.52)
 
 
