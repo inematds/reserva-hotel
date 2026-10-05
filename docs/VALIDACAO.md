@@ -2,7 +2,7 @@
 
 Validador independente do planejador (não viu o planejamento). Método: `~/projetos/execucao-longa/docs/PLANO-EXECUCAO-LONGA.md` §3.1 e §6; molde `~/projetos/atende-clinica`. Nada foi implementado, nada foi empurrado, `congelar.sh` só rodou em clone temporário (apagado). Correções registradas uma por linha em `FALHAS.md`.
 
-**Resultado:** 12 problemas — **2 bloqueavam** a execução (teste honesto falharia), **8 atrapalhavam** (ambiguidade/ fragilidade), **2 cosméticos**. Todos corrigidos nos arquivos do projeto. Contagem de testes continua **98** (nenhum teste acrescentado ou removido; `goal.md` não muda).
+**Resultado:** 13 problemas — **3 bloqueavam** a execução (teste honesto falharia: R6 na estadia mínima; etiqueta de temporada do chalé contra spec + verificador; check-out antecipado sem dizer que `checkout` não muda), **8 atrapalhavam** (ambiguidade/fragilidade/brecha), **2 cosméticos** (`__pycache__`, linha de estado do README). Os 11 não cosméticos são as 11 linhas de `FALHAS.md`. Todos corrigidos nos arquivos do projeto. Contagem de testes continua **98** (nenhum teste acrescentado ou removido; `goal.md` não muda).
 
 ## Checklist do briefing
 
