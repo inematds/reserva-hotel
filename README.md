@@ -10,7 +10,7 @@ Guia completo (landing + passo a passo): **https://inematds.github.io/reserva-ho
 
 Sistema de reservas para **uma pousada ou hotel pequeno**, em Python 3 com biblioteca padrão e SQLite: inventário por noite (tipos de quarto e quartos numerados), tarifas por temporada com pacote de baixa e desconto de reserva direta, cotação/reserva/cancelamento pela conversa (chat web e WhatsApp pela Evolution API), lembrete com pré-check-in, check-in/check-out/no-show pela equipe, lista de espera, mensagem pós-estadia com consentimento, calendários iCal para bloquear datas na Booking/Airbnb e importar o calendário delas por arquivo, origem de cada reserva, equipe pelo Telegram, cadastros, backup, LGPD e exportação mensal para o Painel de Recuperação do **Raio-X de Margem** (pacote `hotel`).
 
-**Estado (19/10/2026): implementação parcial.** Servidor local, SQLite, autenticação, inventário, tarifas, reservas, conversa persistida, lembretes, pré-check-in, lista de espera, pós-estadia, cadastros, LGPD, Raio-X HTTP/CLI e backup/restauração e iCal por arquivo implementados; Evolution com webhook e reenvio da saída implementada. Telegram com atendimento, comandos e avisos implementado; entrega Docker criada (build real ainda não executado); chat web e página da equipe implementados. Um teste de reimportação iCal contradiz a regra de UID da especificação e aguarda revisão humana. Evidências e próximos passos em `longrun/2026-10-05-reservas-v1/state.md`.
+**Estado (19/10/2026): sistema implementado, v0.9.0.** `python3 -m pytest -q tests/` → **98 passed**; contrato recongelado (`a2729b84a50387a9`) depois de corrigir o teste de reimportação iCal que contradizia a regra de UID da especificação; verificação independente **INDEPENDENTE OK** (pousada nunca vista + `docker build` e healthcheck reais). Servidor local, SQLite, autenticação, inventário, tarifas, reservas, conversa, lembretes, pré-check-in, lista de espera, pós-estadia, cadastros, LGPD, Raio-X HTTP/CLI, backup/restauração, iCal por arquivo, Evolution, Telegram, chat web, página da equipe e Docker implementados. Depende do dono: credenciais reais da Evolution/WhatsApp e do Telegram, deploy na VPS, dados reais da pousada e operação humana de `/` e `/equipe`. Histórico das falhas em `FALHAS.md`.
 
 ## O que o sistema faz (v1)
 
@@ -24,7 +24,9 @@ Sistema de reservas para **uma pousada ou hotel pequeno**, em Python 3 com bibli
 
 O que fica de fora do v1 está na seção 14 da especificação.
 
-## Como rodar no seu ambiente
+## Como foi construído (método, para refazer ou adaptar)
+
+O sistema foi construído assim: contrato e testes congelados, execução longa por um agente pela assinatura e verificação independente. Para só rodar, basta Python 3.10+ (veja "Executar" e "Deploy na VPS"); os passos abaixo servem para refazer ou adaptar o sistema com outro contrato.
 
 ### Pré-requisitos
 
@@ -83,14 +85,14 @@ python3 longrun/2026-10-05-reservas-v1/verificar-independente.py   # INDEPENDENT
 
 Procura valores do fixture copiados no código, sobe uma pousada nunca vista (outros tipos, preços, temporada, políticas, relógio) e confere regras que só passam se a lógica for geral; depois faz `docker build` e testa o healthcheck do container. Abra `/` e `/equipe` no navegador.
 
-## Executar (depois de implementado)
+## Executar
 
 ```sh
 mkdir -p dados && cp exemplos/pousada.json dados/pousada.json   # troque TROQUE-ESTE-TOKEN e TROQUE-ESTE-SEGREDO
 ./reserva serve --porta 8080 --dados dados
 ```
 
-O chat do hóspede fica em `/`, a página da equipe em `/equipe` (header `X-Token`). `RESERVA_AGORA` fixa o relógio só para testes. A seção de deploy (compose, proxy HTTPS, webhooks da Evolution e do Telegram, calendários iCal nas OTAs, backup diário) é escrita pelo implementador conforme a seção 20 da especificação.
+O chat do hóspede fica em `/`, a página da equipe em `/equipe` (header `X-Token`). `RESERVA_AGORA` fixa o relógio só para testes. Compose, proxy HTTPS, webhooks da Evolution e do Telegram, calendários iCal nas OTAs e backup diário estão em "Deploy na VPS", abaixo.
 
 ## Arquivos
 
@@ -103,7 +105,7 @@ O chat do hóspede fica em `/`, a página da equipe em `/equipe` (header `X-Toke
 
 ## Deploy na VPS
 
-Dockerfile, compose e exemplo de ambiente disponíveis. O build real e o deploy na VPS devem ser validados pelo operador; a página da equipe ainda está pendente.
+Dockerfile, compose e exemplo de ambiente disponíveis; o `docker build` e o healthcheck já passaram na verificação independente. O deploy na VPS, com as suas credenciais, é do operador.
 
 1. Copie `.env.exemplo` para `.env`, configure os segredos e a pousada no volume de dados. Suba com `docker compose up -d --build`. O serviço deve publicar somente a porta local `127.0.0.1:8080`, com volume persistente em `/dados`.
 2. Configure um proxy reverso com HTTPS no domínio da pousada, encaminhando para essa porta local. Confira `/api/saude` pelo proxy.

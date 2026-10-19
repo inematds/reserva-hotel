@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reserva Hotel — plan kit for inn and hotel booking, iCal and a Telegram team desk</title>
-<meta name="description" content="Open plan kit for a small inn or hotel booking system: specification, 98 acceptance tests, guardrails and prompts for an agent (Claude Code or Codex) to build it in your own environment. The system is not implemented yet.">
+<title>Reserva Hotel — booking system for inns and hotels, iCal and a Telegram team desk</title>
+<meta name="description" content="Open booking system for a small inn or hotel, already implemented (v0.9.0, 98/98 tests, independent verification passed): per-night availability, seasonal rates, direct booking in chat and on WhatsApp, iCal for Booking and Airbnb, and staff on Telegram. Python and SQLite, Docker for the VPS.">
 <link rel="alternate" hreflang="pt-BR" href="https://inematds.github.io/reserva-hotel/guia/">
 <link rel="alternate" hreflang="en" href="https://inematds.github.io/reserva-hotel/guia/en/">
 <link rel="alternate" hreflang="es" href="https://inematds.github.io/reserva-hotel/guia/es/">
@@ -113,7 +113,7 @@
     <a class="sec" href="#oque">What it is</a>
     <a class="sec" href="#fluxo">How it works</a>
     <a class="sec" href="#guia">User guide</a>
-    <a class="sec" href="#kit">What's in the kit</a>
+    <a class="sec" href="#kit">What's in the repo</a>
     <a class="sec" href="#roadmap">Roadmap</a>
     <span class="lang"><a href="../">PT</a><a class="on" href="./">EN</a><a href="../es/">ES</a></span>
     <button class="tgl" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">🌙</button>
@@ -125,9 +125,9 @@
   <div class="glow"></div>
   <div class="wrap">
     <div>
-      <span class="chip">Plan kit · inn and hotel booking · open source</span>
-      <h1>The complete plan so no <span class="amb">room</span> sits empty</h1>
-      <p class="lead">Specification, 98 acceptance tests, guardrails and prompts for an agent to build, in your own environment, the booking system of a small inn or hotel: per-night availability with no overbooking, seasonal rates, direct booking in chat and WhatsApp, an iCal calendar for Booking and Airbnb, and the staff on Telegram. <strong>The system is not implemented yet: this repository is the plan, and you run the implementation.</strong></p>
+      <span class="chip">Ready system · v0.9.0 · 98/98 tests · open source</span>
+      <h1>The booking system that keeps your <span class="amb">rooms</span> from sitting empty</h1>
+      <p class="lead">A booking system for a small inn or hotel, already implemented: per-night availability with no overbooking, seasonal rates, direct booking in the chat and on WhatsApp, an iCal calendar for Booking and Airbnb, and the staff on Telegram. <strong>Version 0.9.0, 98 of 98 tests passing and independent verification approved (Docker included). Clone it, configure your inn and run it.</strong></p>
       <div class="cta">
         <a class="btn" href="#guia">Start the guide</a>
         <a class="btn ghost" href="https://github.com/inematds/reserva-hotel" target="_blank" rel="noopener">View on GitHub</a>
@@ -139,123 +139,123 @@
 
 <section id="oque"><div class="wrap">
   <span class="chip">What it is</span>
-  <h2>A kit to hand to the agent: from the contract to 98 green tests</h2>
-  <p class="sub">There is no finished app here. There is the contract for what the app must do, the test battery that proves it, and the guardrails that stop the agent from cheating. Claude Code or Codex builds it, running on your machine, on your subscription. The sibling project <a href="https://inematds.github.io/atende-clinica/guia/en/" target="_blank" rel="noopener">Atende Clínica</a> was made exactly this way and closed 93 of 93 tests.</p>
+  <h2>A ready system, built from the contract to 98 green tests</h2>
+  <p class="sub">The application is in the repository and it works: <code>./reserva serve</code> starts the guest chat and the staff page. It was built from a contract, a test suite and guardrails that kept the agent from cheating, with Claude Code and Codex running on the subscription. Its sibling <a href="https://inematds.github.io/atende-clinica/guia/" target="_blank" rel="noopener">Atende Clínica</a> was built the same way and closed 93 of 93 tests.</p>
   <figure style="margin:0 0 26px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px -30px #000"><img src="../assets/banner-grade-en.jpg" alt="Per-night availability, seasonal rates, direct booking, iCal for Booking and Airbnb, stay cycle, staff on Telegram, privacy law and Raio-X" loading="lazy" style="width:100%;display:block"></figure>
   <div class="grid g3">
-    <div class="card"><h3>🏨 The system that comes out of the plan</h3><p>Room types and numbered rooms, per-night availability (check-in inclusive, check-out exclusive) with no overbooking, minimum stay, closures and blocks. Seasonal rates with a low-season package (for example, 3 nights pay 2) and a direct-booking discount. Python 3 with only the standard library and SQLite, one inn per installation.</p></div>
-    <div class="card"><h3>📦 The kit</h3><p>A 20-section specification, 98 black-box tests, 17 decisions already proposed, a map to Raio-X, prompts for <code>/goal</code> and for the headless loop, and the guardrails that freeze the contract. An adversarial validator already went through everything and fixed 13 problems, 3 of which would have blocked the run.</p></div>
-    <div class="card"><h3>📈 The rules of Raio-X de Margem</h3><p>A guest who books direct pays no OTA commission, and the low season gets its own price and package. The system returns <code>receita_ota</code>, <code>retorno_atual_pct</code>, <code>ocupacao_baixa_pct</code> and other figures for the <a href="https://inematds.github.io/raio-x-margem/guia/en/" target="_blank" rel="noopener">Raio-X de Margem</a> panel, which is the source of the business rules.</p></div>
+    <div class="card"><h3>🏨 The system</h3><p>Room types and numbered rooms, per-night availability (check-in inclusive, check-out exclusive) with no overbooking, minimum stay, closures and blocks. Seasonal rates with a low-season package (for example, stay 3 nights, pay 2) and a direct-booking discount. Python 3 with the standard library only and SQLite, one inn per installation.</p></div>
+    <div class="card"><h3>📦 How it was built</h3><p>A 20-section specification, 98 black-box tests, 17 proposed and accepted decisions, a map to Raio-X, prompts for <code>/goal</code> and for the headless loop, and the guardrails that froze the contract. An adversarial validator fixed 13 problems in the plan before execution. All of it stays in the repository, in case you want to redo or adapt it.</p></div>
+    <div class="card"><h3>📈 The Raio-X de Margem rules</h3><p>A guest who books direct pays no OTA commission, and the low season gets its own price and package. The system returns <code>receita_ota</code>, <code>retorno_atual_pct</code>, <code>ocupacao_baixa_pct</code> and other figures to the <a href="https://inematds.github.io/raio-x-margem/guia/" target="_blank" rel="noopener">Raio-X de Margem</a> panel, which is the source of the business rules.</p></div>
   </div>
 </div></section>
 
 <section id="fluxo"><div class="wrap">
   <span class="chip">How it works</span>
-  <h2>From "do you have a room for the holiday?" to a completed stay</h2>
-  <p class="sub">This is the flow of the planned system, what the agent will build. A Python server with no dependencies, SQLite in a data folder, and Docker for the VPS. Evolution and Telegram come in only through environment variables; without them, the outbox is simulated and no network call goes out.</p>
+  <h2>From "any rooms for the holiday?" to a completed stay</h2>
+  <p class="sub">This is the flow of the implemented system. A Python server with no dependencies, SQLite in a data folder and Docker for the VPS. Evolution and Telegram come in only through environment variables; without them, the outbox is simulated and no network call goes out.</p>
   <div class="flow">
     <span>Website chat or WhatsApp (Evolution)</span><span class="arr">→</span>
     <span>Dates and guests</span><span class="arr">→</span>
-    <span>Quote by season, with the direct discount</span><span class="arr">→</span>
+    <span>Seasonal quote, with direct discount</span><span class="arr">→</span>
     <span>Booking with no overbooking</span><span class="arr">→</span>
     <span>Reminder, pre-check-in, check-in and check-out</span><span class="arr">→</span>
-    <span>Post-stay message and the month's figures for Raio-X</span>
+    <span>Post-stay and monthly figures for Raio-X</span>
   </div>
   <div class="grid g3" style="margin-top:22px">
-    <div class="card"><h3>Guest</h3><p>Through chat or WhatsApp the guest checks availability and price, books, views and cancels their own booking according to the policy (free until 7 days before, in the example), gets answers from the FAQ, asks for a human agent and sends "PARAR" (stop) when they want no more messages.</p></div>
-    <div class="card"><h3>Staff on Telegram</h3><p>Notices of new and cancelled bookings, and the commands <code>/chegadas</code> (arrivals), <code>/ocupacao</code> (occupancy), <code>/fila</code> (queue), <code>/responder</code> (reply) and <code>/encerrar</code> (close), also as a direct reply to the guest's message.</p></div>
-    <div class="card"><h3>The /equipe page</h3><p>With a token: the day's arrivals and departures, the month's occupancy map, check-in, check-out and no-show, deposit paid, records for types, rooms, seasons and FAQ, blocks and the human queue.</p></div>
+    <div class="card"><h3>Guest</h3><p>Through the chat or WhatsApp, checks availability and price, books, views and cancels their own booking according to the policy (free up to 7 days before, in the example), gets FAQ answers, asks for a human and sends "PARAR" to stop messages.</p></div>
+    <div class="card"><h3>Staff on Telegram</h3><p>Alerts for new and cancelled bookings, and the commands <code>/chegadas</code>, <code>/ocupacao</code>, <code>/fila</code>, <code>/responder</code> and <code>/encerrar</code>, also as a direct reply to the guest's message.</p></div>
+    <div class="card"><h3>/equipe page</h3><p>With a token: today's arrivals and departures, monthly occupancy map, check-in, check-out and no-show, deposit paid, registries of types, rooms, seasons and FAQ, blocks and the human queue.</p></div>
   </div>
   <div class="grid g3" style="margin-top:16px">
-    <div class="card"><h3>Rates and seasons</h3><p>Base rate per type, seasons (high, low, holiday) with a price per night, extra guest, low-season package and an own-channel discount (direct or front desk), never for the OTA. The deposit is a written policy, marked as paid by the staff. Cents rounded half up.</p></div>
-    <div class="card"><h3>iCal with Booking and Airbnb</h3><p>Export per type and per room, to block the dates on the OTAs. Import of the <code>.ics</code> downloaded from the OTA, sent as a file: it becomes a booking with source <code>booking</code> or <code>airbnb</code>. No external URL is fetched in v1.</p></div>
-    <div class="card"><h3>Stay cycle</h3><p>A reminder with pre-check-in a few days ahead, check-in and check-out by the staff, no-show, a post-stay message inviting the guest to book direct (only with consent) and a waitlist for full dates.</p></div>
+    <div class="card"><h3>Rates and seasons</h3><p>Base rate per type, seasons (high, low, holiday) with a nightly price, extra person, low-season package and own-channel discount (direct or front desk), never for the OTA. Deposit as a written policy, marked as paid by the staff. Cents rounded half up.</p></div>
+    <div class="card"><h3>iCal with Booking and Airbnb</h3><p>Export per type and per room, to block dates on the OTAs. Import of the <code>.ics</code> downloaded from the OTA, uploaded as a file: it becomes a booking with origin <code>booking</code> or <code>airbnb</code>. No external URL is fetched in v1.</p></div>
+    <div class="card"><h3>Stay cycle</h3><p>Reminder with pre-check-in a few days before, check-in and check-out by the staff, no-show, post-stay message inviting guests to book direct (only with consent) and a waiting list for full dates.</p></div>
   </div>
 </div></section>
 
 <section id="pre"><div class="wrap">
   <span class="chip">Prerequisites</span>
   <h2>What you need</h2>
-  <p class="sub">To run the plan you only need Python for the tests and an agent logged in through a subscription. Docker only comes in at the final check and the deploy; Evolution and Telegram are optional and yours.</p>
+  <p class="sub">To run the system, Python is enough. Docker comes in for the VPS deploy; Evolution and Telegram are optional and yours. An agent on the subscription is only needed if you want to redo or adapt the system with the same method.</p>
   <div class="grid g3">
-    <div class="card"><h3>Python 3.10+ and pytest</h3><p>The tests use pytest (a development tool). The application itself will have no dependencies.</p><pre><span class="c"># check</span>
+    <div class="card"><h3>Python 3.10+</h3><p>The application has no dependencies beyond the standard library. pytest is only used to run the tests.</p><pre><span class="c"># check</span>
 <span class="k">python3</span> --version
-<span class="k">python3</span> -m pip install pytest</pre></div>
-    <div class="card"><h3>Claude Code or Codex</h3><p>Through the subscription, no paid API. For the headless loop, clone <a href="https://github.com/inematds/execucao-longa" target="_blank" rel="noopener">execucao-longa</a> into <code>~/projetos</code>.</p><pre><span class="c"># check</span>
-<span class="k">codex</span> --version   <span class="c"># or: claude --version</span></pre></div>
-    <div class="card"><h3>Docker, Evolution and Telegram</h3><p>Docker does the final build and the VPS deploy. An Evolution instance and a Telegram bot only if you want the channels; the credentials live in <code>.env</code>.</p><pre><span class="c"># check</span>
+<span class="k">python3</span> -m pip install pytest   <span class="c"># optional</span></pre></div>
+    <div class="card"><h3>Docker, Evolution and Telegram</h3><p>Docker runs the system on the VPS. An Evolution instance and a Telegram bot only if you want those channels; the credentials live in <code>.env</code>.</p><pre><span class="c"># check</span>
 <span class="k">docker</span> --version</pre></div>
+    <div class="card"><h3>Claude Code or Codex (optional)</h3><p>Only to redo or adapt, on the subscription, no paid API. For the headless loop, clone <a href="https://github.com/inematds/execucao-longa" target="_blank" rel="noopener">execucao-longa</a> into <code>~/projetos</code>.</p><pre><span class="c"># check</span>
+<span class="k">codex</span> --version   <span class="c"># or: claude --version</span></pre></div>
   </div>
 </div></section>
 
 <section id="guia"><div class="wrap">
   <span class="chip">User guide · step by step</span>
-  <h2>From the clone to the implemented system, in your environment</h2>
-  <p class="sub">The commands below are the repository's own. The cycle: answer the decisions, freeze the contract, run the agent until <code>98 passed</code> and <code>LIMITES OK</code>, and check with the independent verification.</p>
+  <h2>From clone to a running system, in your environment</h2>
+  <p class="sub">The commands below are the repository's. Steps 1, 2 and 7 are enough to run it. Steps 3 to 6 tell how the system was built (frozen contract, long run until <code>98 passed</code> and <code>LIMITES OK</code>, independent verification) and are there to redo or adapt it.</p>
 
   <div class="step"><div class="b">1</div><div>
-    <h3>Clone the repository</h3>
-    <p>There is no <code>./reserva</code> yet: the repository only holds the plan. Check that the suite is collected without errors and that nothing passes yet (without the implementation the tests fail or error out, and that is expected).</p>
+    <h3>Clone the repository and check the tests</h3>
+    <p><code>./reserva</code> is already in the repository. The whole acceptance suite should pass.</p>
 <pre><span class="k">git clone</span> <span class="s">https://github.com/inematds/reserva-hotel</span> && <span class="k">cd</span> reserva-hotel
-<span class="k">python3</span> -m pytest -q --collect-only | tail -1   <span class="c"># 98 tests collected</span>
-<span class="k">python3</span> -m pytest -q | tail -1                  <span class="c"># 0 passed</span></pre>
+<span class="k">./reserva</span> --help                               <span class="c"># serve, backup, restaurar, raiox</span>
+<span class="k">python3</span> -m pytest -q tests/ | tail -1          <span class="c"># 98 passed</span></pre>
   </div></div>
 
   <div class="step"><div class="b">2</div><div>
-    <h3>Answer the open decisions</h3>
-    <p>Read <code>docs/DECISOES-ABERTAS.md</code> (written in Portuguese): there are 17 default proposals already applied in the specification and the tests. Answering "ok on everything" unblocks the run. If you change anything marked ⚠ (for example the direct-booking discount, per-type inventory or the cancellation policy), edit <code>docs/ESPECIFICACAO.md</code> and the tests before freezing. For a real pilot, also replace <code>exemplos/pousada.json</code> with your own room types, rooms, seasons and FAQ.</p>
+    <h3>Fit the decisions to your inn</h3>
+    <p><code>docs/DECISOES-ABERTAS.md</code> lists the 17 default proposals that were accepted and applied to the specification and the tests. For a real pilot, replace <code>exemplos/pousada.json</code> with your room types, rooms, seasons and FAQ. If you want to change something marked ⚠ (for example the direct-booking discount, per-type inventory or the cancellation policy), that changes the contract: follow steps 3 to 6.</p>
 <pre><span class="k">less</span> docs/DECISOES-ABERTAS.md</pre>
   </div></div>
 
   <div class="step"><div class="b">3</div><div>
-    <h3>Freeze the contract</h3>
-    <p>With everything committed, the script records the hash of <code>tests/</code>, <code>pytest.ini</code>, the specification and the two verifiers, plus the base commit in <code>hash-congelado.txt</code>, and makes one commit. From then on, any change to the tests is detected. If there are pending changes, the script stops and asks you to commit first.</p>
+    <h3>How it was built: the frozen contract</h3>
+    <p>Before implementation, the <code>congelar.sh</code> script recorded the hash of <code>tests/</code>, <code>pytest.ini</code>, the specification and both verifiers, plus the base commit, in <code>hash-congelado.txt</code>. From then on, any change to the tests was detected. To redo or adapt, edit the specification and tests, commit and freeze again.</p>
 <pre><span class="k">git add</span> -A && <span class="k">git commit</span> -m <span class="s">"contrato v1"</span>
 <span class="k">bash</span> longrun/2026-10-05-reservas-v1/congelar.sh</pre>
   </div></div>
 
   <div class="step"><div class="b">4</div><div>
-    <h3>Run the agent (pick one path)</h3>
-    <p><strong>a) Headless loop with Codex (recommended).</strong> <code>loop.env</code> sets 20 cycles of 30 min, 8 GB per cycle, a stop after 3 cycles without progress, model <code>gpt-6-astra</code> and <code>CODEX_ARGS="-c sandbox_workspace_write.network_access=true"</code>: without it the Codex sandbox blocks the tests' local server.</p>
+    <h3>How it was built: the agent on a long run</h3>
+    <p><strong>a) Headless loop with Codex.</strong> This was the path used. <code>loop.env</code> sets 20 cycles of 30 min, 8 GB per cycle, a stop after 3 cycles without progress, model <code>gpt-6-astra</code> and <code>CODEX_ARGS="-c sandbox_workspace_write.network_access=true"</code>: without it the Codex sandbox blocks the tests' local server.</p>
 <pre><span class="k">~/projetos/execucao-longa/tools/loop-longrun.sh</span> longrun/2026-10-05-reservas-v1</pre>
-    <p><strong>b) <code>/goal</code> in Claude Code.</strong> Open a new Claude Code session in the project folder and follow <code>longrun/2026-10-05-reservas-v1/prompt-goal-claude.md</code>: paste the <code>/goal</code> condition (the output must show <code>98 passed</code> and <code>LIMITES OK</code>) and, as the first message, the block from <code>prompt-goal-codex.md</code> starting at <code>RESULTADO:</code>.</p>
+    <p><strong>b) <code>/goal</code> in Claude Code.</strong> A new session in the project folder, following <code>longrun/2026-10-05-reservas-v1/prompt-goal-claude.md</code>: the <code>/goal</code> condition (the output must show <code>98 passed</code> and <code>LIMITES OK</code>) and, as the first message, the block from <code>prompt-goal-codex.md</code> starting at <code>RESULTADO:</code>.</p>
 <pre><span class="k">claude</span>   <span class="c"># new session, inside reserva-hotel</span></pre>
     <p><strong>c) Codex TUI.</strong> Paste the contents of <code>longrun/2026-10-05-reservas-v1/prompt-goal-codex.md</code>.</p>
 <pre><span class="k">codex</span> -c sandbox_workspace_write.network_access=true</pre>
   </div></div>
 
   <div class="step"><div class="b">5</div><div>
-    <h3>Follow along</h3>
-    <p>In the loop, <code>loop.log</code> shows each cycle and <code>progress.md</code> has one line per checkpoint. The loop's exit code tells you what happened: <code>0</code> done (the final test passed), <code>1</code> cycle ceiling reached, <code>2</code> stopped after 3 cycles without progress, <code>3</code> another loop is already running in the folder. A test that conflicts with the specification goes to <code>failures.md</code>: that is a human gate, and the agent must not adjust the test or the specification.</p>
+    <h3>How it was built: monitoring and the human gate</h3>
+    <p>In the loop, <code>loop.log</code> shows each cycle and <code>progress.md</code> has one line per checkpoint. The exit code says what happened: <code>0</code> done, <code>1</code> cycle cap reached, <code>2</code> stopped after 3 cycles without progress, <code>3</code> another loop already running in the folder. A test that conflicts with the specification goes to <code>failures.md</code> and is a human gate. That is what happened here: an iCal re-import test reused another event's UID; the human fixed the test, re-froze the contract and the suite closed at 98 of 98.</p>
 <pre><span class="k">tail</span> -f longrun/2026-10-05-reservas-v1/loop.log
 <span class="k">cat</span> longrun/2026-10-05-reservas-v1/state.md</pre>
   </div></div>
 
   <div class="step"><div class="b">6</div><div>
-    <h3>Check with the independent verification</h3>
-    <p>When the agent says "done", run the three commands. The last one the agent has never seen: it looks for fixture values copied into the code, brings up an inn that never appeared (other types, prices with cents, a winter low season, a 4-pay-3 package, a 15 % discount, a 50 % deposit, another clock) and runs <code>docker build</code> with a healthcheck. Then open <code>/</code> and <code>/equipe</code> in the browser.</p>
+    <h3>The independent verification (passed)</h3>
+    <p>The agent never saw the last command: it looks for fixture values copied into the code, starts an inn that never appeared (other types, prices with cents, a winter low season, stay 4 pay 3, a 15 % discount, a 50 % deposit, another clock) and runs <code>docker build</code> with a healthcheck. Result on 2026-10-19: <code>INDEPENDENTE OK</code>. Run it again if you change the code.</p>
 <pre><span class="k">python3</span> -m pytest -q tests/                                        <span class="c"># 98 passed</span>
 <span class="k">bash</span> longrun/2026-10-05-reservas-v1/verificar-limites.sh              <span class="c"># LIMITES OK</span>
 <span class="k">python3</span> longrun/2026-10-05-reservas-v1/verificar-independente.py     <span class="c"># INDEPENDENTE OK</span></pre>
   </div></div>
 
   <div class="step"><div class="b">7</div><div>
-    <h3>Run your own inn and deploy to a VPS</h3>
-    <p>With the system implemented, copy the example, replace <code>TROQUE-ESTE-TOKEN</code> and <code>TROQUE-ESTE-SEGREDO</code> (the placeholder token and secret) and start the server. The guest chat lives at <code>/</code> and the staff page at <code>/equipe</code> (header <code>X-Token</code>).</p>
+    <h3>Run your inn and deploy to the VPS</h3>
+    <p>Copy the example, replace <code>TROQUE-ESTE-TOKEN</code> and <code>TROQUE-ESTE-SEGREDO</code> and start the server. The guest chat is at <code>/</code> and the staff page at <code>/equipe</code> (header <code>X-Token</code>).</p>
 <pre><span class="k">mkdir</span> -p dados && <span class="k">cp</span> exemplos/pousada.json dados/pousada.json
 <span class="k">./reserva</span> serve --porta 8080 --dados dados</pre>
-    <p>The deploy is yours, with your credentials. The agent itself writes the deploy README as part of the goal: bring up <code>docker compose</code> (port only on <code>127.0.0.1:8080</code>, behind an HTTPS proxy), the Evolution webhook at <code>/webhook/evolution/&lt;secret&gt;</code> (event <code>MESSAGES_UPSERT</code>), the Telegram webhook with <code>setWebhook</code> and <code>secret_token</code>, the <code>/ical/&lt;secret&gt;/…</code> URL registered on Booking and Airbnb, the import of their <code>.ics</code> through the staff page and the daily backup (<code>./reserva backup</code> in cron).</p>
+    <p>The deploy is yours, with your credentials, and is described in the README ("Deploy on the VPS" section): <code>docker compose</code> with the port only on <code>127.0.0.1:8080</code>, behind an HTTPS proxy; the Evolution webhook at <code>/webhook/evolution/&lt;segredo&gt;</code> (event <code>MESSAGES_UPSERT</code>); the Telegram webhook with <code>setWebhook</code> and <code>secret_token</code>; the <code>/ical/&lt;segredo&gt;/…</code> URL registered on Booking and Airbnb; importing their <code>.ics</code> through the staff page; and the daily backup (<code>./reserva backup</code> in cron).</p>
 <pre><span class="k">cp</span> .env.exemplo .env && <span class="k">chmod</span> 600 .env   <span class="c"># fill in EVOLUTION_*, TELEGRAM_*, WEBHOOK_SEGREDO</span>
 <span class="k">docker compose</span> up -d --build</pre>
   </div></div>
 </div></section>
 
 <section id="kit"><div class="wrap">
-  <span class="chip">What's in the kit</span>
-  <h2>Contract, tests and guardrails, with the real numbers</h2>
-  <p class="sub">Everything the agent needs to build, and everything that stops it from pretending it built.</p>
+  <span class="chip">What's in the repo</span>
+  <h2>System, contract, tests and guardrails, with the real numbers</h2>
+  <p class="sub">The code that runs, and everything that proved it does what it promises: the contract, the tests and the guardrails used to build it.</p>
   <div class="grid g3">
-    <div class="card"><h3>98 acceptance tests</h3><p>Black-box, over HTTP and the command line, in 10 files.</p><pre>test_inventario.py            17
+    <div class="card"><h3>98 acceptance tests</h3><p>Black-box, over HTTP and the command line, in 10 files. All passing on v0.9.0.</p><pre>test_inventario.py            17
 test_integracoes.py           16
 test_conversa.py              14
 test_ciclo.py                 11
@@ -265,32 +265,32 @@ test_ical.py                   7
 test_basico.py                 6
 test_docker.py                 4
 test_lgpd_raiox.py             4</pre></div>
-    <div class="card"><h3>A 20-section specification</h3><p><code>docs/ESPECIFICACAO.md</code>: execution, <code>pousada.json</code>, nights and availability, rate calculation, authentication, HTTP API, conversation, waitlist, stay cycle, cancellation, iCal, export to Raio-X, privacy law (LGPD), what stays out of v1, pages, records, database, Evolution, Telegram and Docker. Payment (Pix and cards), iCal sync by URL, selling extras, dynamic pricing and multiple inns are explicitly out.</p></div>
-    <div class="card"><h3>Guardrails against shortcuts</h3><p>A frozen hash of <code>tests/</code>, <code>pytest.ini</code>, the specification and the two verifiers. File scope: the agent only touches the code and its own records. No external dependency, no API key, no external URL and no <code>0.0.0.0</code> in the code. <code>verificar-limites.sh</code> checks all of this and prints <code>LIMITES OK</code>.</p></div>
-    <div class="card"><h3>Independent verification</h3><p>Level 4, hidden from the agent: it looks for fixture values in the code, brings up an inn nobody has seen, with every argument explicit, and runs <code>docker build</code> and a container healthcheck. Only then does "98 passed" prove general logic.</p></div>
-    <div class="card"><h3>17 decisions already proposed</h3><p>Language, channels, the direct-booking discount and Booking parity, per-type inventory, OTAs through iCal only, deposit and cancellation, rates, the stay cycle, what goes to Raio-X, one inn per installation and PT only in v1. Only the items marked ⚠ change the contract.</p></div>
-    <div class="card"><h3>Validated by an adversarial agent</h3><p>A validator that never saw the planning checked tests against the specification, redid 70 calculations and tried to get around the guardrails. It found and fixed 13 problems, 3 of which would have blocked the run. The full account is in <code>docs/VALIDACAO.md</code>.</p></div>
+    <div class="card"><h3>20-section specification</h3><p><code>docs/ESPECIFICACAO.md</code>: execution, <code>pousada.json</code>, nights and availability, rate calculation, authentication, HTTP API, conversation, waiting list, stay cycle, cancellation, iCal, export to Raio-X, privacy law (LGPD), what stays out of v1, pages, registries, database, Evolution, Telegram and Docker. Payment (Pix and card), iCal sync by URL, selling extras, dynamic pricing and multiple inns are explicitly out.</p></div>
+    <div class="card"><h3>Anti-shortcut guardrails</h3><p>Frozen hash of <code>tests/</code>, <code>pytest.ini</code>, the specification and both verifiers. File scope: the agent only touched the code and its own logs. No external dependency, no API key, no external URL and no <code>0.0.0.0</code> in the code. <code>verificar-limites.sh</code> checks all of it and prints <code>LIMITES OK</code>.</p></div>
+    <div class="card"><h3>Independent verification</h3><p>Level 4, hidden from the agent: looks for fixture values in the code, starts a never-seen inn with every argument explicit, and runs <code>docker build</code> and the container healthcheck. Only then does "98 passed" prove general logic. Passed on 2026-10-19.</p></div>
+    <div class="card"><h3>17 proposed and accepted decisions</h3><p>Language, channels, direct-booking discount and Booking rate parity, per-type inventory, OTAs via iCal only, deposit and cancellation, rates, stay cycle, what goes to Raio-X, one inn per installation and PT only in v1. Only the items marked ⚠ change the contract.</p></div>
+    <div class="card"><h3>Validated by an adversarial agent</h3><p>A validator that never saw the planning checked tests against the specification, redid 70 calculations and tried to break the guardrails. It found and fixed 13 problems, 3 of which would have blocked the run. The full report is in <code>docs/VALIDACAO.md</code>.</p></div>
   </div>
   <div class="grid g2" style="margin-top:16px">
-    <div class="card"><h3>The business rules come from Raio-X</h3><p>Direct booking versus OTA commission, a low season with a package, and the guest who comes back: <code>docs/MAPA-RAIO-X.md</code> ties each leak of the <code>hotel</code> pack to a piece of v1 or to the reason it stays out. Details in the <a href="https://inematds.github.io/raio-x-margem/guia/en/" target="_blank" rel="noopener">Raio-X de Margem guide</a>.</p></div>
-    <div class="card"><h3>Built-in rules are Brazilian</h3><p>LGPD (Brazil's privacy law: the reminder as contract performance, the post-stay message only with consent, export and anonymize) and the care around price parity in Booking's contract in Brazil: no public page shows a price, and the direct discount only appears in the 1:1 conversation. The inn's owner validates this point. Outside Brazil, adapt them to local law.</p></div>
+    <div class="card"><h3>The business rules come from Raio-X</h3><p>Direct booking versus OTA commission, low season with a package and returning guests: <code>docs/MAPA-RAIO-X.md</code> links each leak in the <code>hotel</code> package to a v1 piece or to the reason it stays out. Details in the <a href="https://inematds.github.io/raio-x-margem/guia/" target="_blank" rel="noopener">Raio-X de Margem guide</a>.</p></div>
+    <div class="card"><h3>Brazilian rules built in</h3><p>The LGPD privacy law (reminder as contract performance, post-stay only with consent, export and anonymize) and care with the rate-parity clause of Booking's contract in Brazil: no public page shows a price, and the direct discount only appears in the 1:1 conversation. The inn owner validates this point.</p></div>
   </div>
 </div></section>
 
 <section id="roadmap"><div class="wrap">
   <span class="chip">Roadmap</span>
-  <h2>Where it stands and where it goes</h2>
-  <p class="sub">The plan is ready and validated. The implementation does not exist yet: it is born when you run the <code>/goal</code>, through the <a href="https://inematds.github.io/execucao-longa/guia/" target="_blank" rel="noopener">execucao-longa</a> method. <a href="https://inematds.github.io/atende-clinica/guia/en/" target="_blank" rel="noopener">Atende Clínica</a> followed the same path and closed 93 of 93.</p>
-  <div class="phase"><div class="tag">Plan ✅</div><div class="d"><strong>Specification, tests and guardrails validated</strong><span>A 20-section contract, 98 acceptance tests, proposed decisions, a map to Raio-X and an adversarial validation finished on 05/10/2026.</span></div></div>
-  <div class="phase"><div class="tag">Implementation</div><div class="d"><strong>You run the /goal</strong><span>Answer the decisions, freeze the contract and let the agent work until <code>98 passed</code> and <code>LIMITES OK</code>, then the independent verification. Today the system is not implemented.</span></div></div>
-  <div class="phase"><div class="tag">Pilot</div><div class="d"><strong>In a real inn</strong><span>Set up the real room types, rooms, seasons and FAQ, publish on the VPS, register the iCal on Booking and Airbnb and track direct bookings, low-season occupancy and return guests in the Raio-X Recovery Panel.</span></div></div>
-  <div class="phase"><div class="tag">Later</div><div class="d"><strong>Out of v1</strong><span>Payment, iCal sync by URL, selling extras, dynamic pricing, multiple inns and an EN/ES interface are left for a next version, behind a human gate.</span></div></div>
+  <h2>Where it is and where it goes</h2>
+  <p class="sub">The plan was validated and the implementation is done: v0.9.0, 98 of 98 tests and independent verification passed, through the <a href="https://inematds.github.io/execucao-longa/guia/" target="_blank" rel="noopener">execucao-longa</a> method. <a href="https://inematds.github.io/atende-clinica/guia/" target="_blank" rel="noopener">Atende Clínica</a> followed the same path and closed 93 of 93. The next step depends on the inn owner.</p>
+  <div class="phase"><div class="tag">Plan ✅</div><div class="d"><strong>Specification, tests and guardrails validated</strong><span>20-section contract, 98 acceptance tests, proposed decisions, map to Raio-X and adversarial validation completed on 2026-10-05.</span></div></div>
+  <div class="phase"><div class="tag">Build ✅</div><div class="d"><strong>System built and verified</strong><span>Completed on 2026-10-19: v0.9.0, <code>98 passed</code>, <code>LIMITES OK</code> and <code>INDEPENDENTE OK</code> (never-seen inn, real <code>docker build</code> and healthcheck).</span></div></div>
+  <div class="phase"><div class="tag">Pilot</div><div class="d"><strong>At a real inn, with the owner</strong><span>Up to you: real Evolution (WhatsApp) and Telegram credentials, deploy on your VPS, real room types, rooms, seasons and FAQ, staff operating <code>/</code> and <code>/equipe</code>, iCal registered on Booking and Airbnb, and tracking direct bookings, low-season occupancy and returns on the Raio-X Recovery Panel.</span></div></div>
+  <div class="phase"><div class="tag">Later</div><div class="d"><strong>Out of v1</strong><span>Payment, iCal sync by URL, selling extras, dynamic pricing, multiple inns and an EN/ES interface are left for a next version, with a human gate.</span></div></div>
 </div></section>
 
 <footer>
   <div class="wrap">
     <div class="pill">Python 3 · standard library</div><div class="pill">SQLite</div><div class="pill">Docker</div><div class="pill">Evolution API</div><div class="pill">Telegram</div><div class="pill">iCal</div>
-    <p style="margin-top:18px">Reserva Hotel · open plan kit ·
+    <p style="margin-top:18px">Reserva Hotel · open system v0.9.0 ·
       <a href="https://github.com/inematds/reserva-hotel">inematds/reserva-hotel</a> ·
       <a href="https://inema.club">INEMA.CLUB</a></p>
   </div>
