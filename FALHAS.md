@@ -2,6 +2,8 @@
 
 | data | o que quebrou | menor correção | prompt \| infra |
 |---|---|---|---|
+| 2026-10-19 14:00 | Responder atendimento sem hóspede usava variável number inexistente | Usar telefone do atendimento; execução local do fluxo passou | infra |
+| 2026-10-19 14:00 | Rotas de cadastros, anonimização, Raio-X e comandos backup/restaurar ausentes | Acrescentar módulos locais sobre o Store existente; 13 testes específicos aprovados | infra |
 | 2026-10-19 13:56 | /api/mensagens e ciclo de comunicação ausentes no checkpoint anterior | Adicionar Conversation persistida e rotas locais reutilizando inventário; 25 testes de conversa/ciclo aprovados | infra |
 | 2026-10-19 13:52 | README não tinha seção Deploy na VPS exigida | Acrescentar seção preservando descrição e Como rodar; teste aprovado | infra |
 | 2026-10-05 | README: nada impedia o implementador de reescrever e derrubar "Como rodar no seu ambiente" (seção do dono) | `test_readme_explica_deploy` exige as duas seções; `prompt.md`/`goal.md` avisam | prompt |

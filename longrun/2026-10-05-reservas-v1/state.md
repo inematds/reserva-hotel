@@ -1,20 +1,21 @@
-# Estado — atualizado 2026-10-19 13:56
+# Estado — atualizado 2026-10-19 14:01
 
 ## Funciona
-- Implementação parcial v0.3.0. Base ./reserva serve, PORTA, SQLite em --dados, semente única, auth, inventário, tarifas Decimal, reservas e operações da estadia preservados.
-- Conversa determinística em src/conversation.py: FAQ, cotação com datas/hóspedes/opções, criação de hóspede/reserva, minhas reservas, voltar, cancelamento com política, parar e fila humana local. Estado e histórico persistidos por telefone.
-- Lembrete idempotente, confirmação de chegada/pré-check-in, pós-estadia com consentimento, caixa de saída simulada; nao_contatar impede criação de mensagens. Relógio da rodada não altera o relógio do processo.
-- Lista de espera validada; cancelamento/no-show oferecem ao primeiro elegível do mesmo tipo; aceitar revalida inventário na transação e volta a pendente se acabou a vaga.
-- API local para responder/encerrar atendimento; enquanto aberto, o bot fica silencioso. GET dados inclui histórico de mensagens. README manteve descrição/Como rodar/Deploy e só atualizou a linha de estado.
-- Suíte completa: 60 passed / 38 failed em 61.67s. Após último ajuste de respostas da espera, testes de conversa/ciclo: 25 passed em 2.80s. LIMITES OK (98 testes; hash 784f3067f9b5210b). Não concluído.
+- Implementação parcial v0.4.0. Base ./reserva serve, PORTA, SQLite em --dados, semente única, auth, inventário, tarifas Decimal, reservas e operações da estadia preservados.
+- Conversa persistida, FAQ, cotação/reserva/cancelamento, fila humana local, lembrete/pré-check-in, espera e pós-estadia com consentimento. Ofertas revalidam inventário na transação; nao_contatar impede saída.
+- Cadastros de tipos (inclusive inativação), quartos, temporadas, estadias mínimas e FAQ; busca de hóspedes sem acento e edição com telefone validado. Fechamentos/bloqueios já implementados.
+- LGPD anonimiza cadastro, campos pessoais nas reservas, histórico e fila; apaga sessão antiga. Histórico vazio fica associado ao id do titular, sem misturar telefones null; estadias passadas continuam nos agregados.
+- Raio-X HTTP e CLI com Decimal/ROUND_HALF_UP, rateio por noites gravadas e atualização do acompanhamento preservando valores não medidos.
+- Backup consistente via SQLite online backup, ZIP com banco/configuração; restaurar valida integridade e recupera o estado. README preservado, somente linha de estado atualizada neste ciclo.
+- Suíte completa: 73 passed / 25 failed em 61.49s. Cadastros/LGPD/Raio-X/backup isolados: 13 passed. Atendimento a telefone sem cadastro: execução local OK. LIMITES OK (98 testes; hash 784f3067f9b5210b). Não concluído.
 
 ## Falta
-- Cadastros restantes e busca/edição de hóspedes; anonimização LGPD; Raio-X HTTP/CLI; backup/restaurar.
-- Importação/exportação iCal e seus efeitos de liberação; Evolution e Telegram (só falsos locais), incluindo encaminhamento de mensagens e avisos da conversa.
-- Dockerfile, compose, .env.exemplo e páginas funcionais em web/. Nenhum conflito teste/spec identificado.
+- iCal: importação por arquivo, reimportação/liberação e lista de espera, exportação dos calendários de tipo/quarto.
+- Evolution e Telegram pelas variáveis da spec, somente testes com servidores falsos locais; avisos e encaminhamento da conversa, reenvios e comandos da equipe.
+- Dockerfile, compose, .env.exemplo e páginas funcionais em web/. As 25 falhas da suíte estão nessas áreas ainda ausentes. Nenhum conflito teste/spec identificado.
 
 ## Como retomar
-1. Ler goal → state → plan → canal → fim de progress/failures. Spec e conftest lidos integralmente neste ciclo.
-2. Próxima ação: cadastros/LGPD, depois Raio-X/backup. Reutilizar Store e Conversation; não alterar contrato/testes nem commitar.
+1. Ler goal → state → plan → canal → fim de progress/failures. Spec e tests/conftest.py lidos integralmente neste ciclo.
+2. Próxima ação: iCal (seção 11), reutilizando Store/Conversation; depois integrações e entrega. Não alterar testes/contrato, não commitar e não usar rede externa.
 3. Rodar python3 -m pytest -q tests/ com saída em arquivo e tail -n 30; depois bash longrun/2026-10-05-reservas-v1/verificar-limites.sh.
-Logs: /tmp/reserva-ciclo2-pytest.log e /tmp/reserva-ciclo2-fluxos.log. Os testes de integração aguardam avisos ainda ausentes e deixam a suíte completa mais lenta.
+Logs: /tmp/reserva-ciclo3-pytest.log e /tmp/reserva-ciclo3-alvo.log. Integrações ausentes deixam a suíte levar aproximadamente 1 minuto. loop.log/teste-final.log/ciclo-3.log já estavam modificados/criados pelo loop ao iniciar; não reescritos por este ciclo.

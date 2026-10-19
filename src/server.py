@@ -8,6 +8,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 from .conversation import Conversation
+from .management import dispatch as management
+from .reporting import report, export
+from .backup import backup, restore
 from .domain import Store, Error, ROOT, hoje, agora, noites, telefone, decimal, arred
 
 
@@ -37,7 +40,7 @@ def dispatch(store, db, method, path, query, body):
             chat.save('conversas', state)
             return 200, dict(status='encerrado')
         if parts[3] == 'responder':
-            guest = chat.guest(item['telefone']) or dict(id=None, telefone=item['telefone'], nao_contatar=chat.session(number)['nao_contatar'])
+            guest = chat.guest(item['telefone']) or dict(id=None, telefone=item['telefone'], nao_contatar=chat.session(item['telefone'])['nao_contatar'])
             chat.output(guest, 'humano', body['texto'])
             return 200, dict(ok=True)
     if method == 'GET' and path == '/api/saude':
@@ -51,6 +54,11 @@ def dispatch(store, db, method, path, query, body):
             except (TypeError, ValueError):
                 raise Error(422, 'formato')
         return 200, store.disponibilidade(db, query)
+    if path == '/api/raiox' and method == 'GET':
+        return 200, report(store, db, query['mes'])
+    managed = management(store, db, method, parts, query, body)
+    if managed is not None:
+        return managed
     if path == '/api/hospedes' and method == 'POST':
         number = telefone(body.get('telefone', ''))
         previous = next((h for h in store.all(db, 'hospedes') if h['telefone'] == number), None)
@@ -61,7 +69,7 @@ def dispatch(store, db, method, path, query, body):
     if len(parts) == 4 and parts[1] == 'hospedes' and parts[3] == 'dados' and method == 'GET':
         guest = store.get(db, 'hospedes', parts[2])
         reservations = [store.expand(db, r) for r in store.all(db, 'reservas') if r['hospede_id'] == guest['id']]
-        return 200, dict(hospede=guest, reservas=reservations, mensagens=[{k: m[k] for k in ('direcao', 'texto', 'quando')} for m in chat.rows('mensagens') if m['telefone'] == guest['telefone']])
+        return 200, dict(hospede=guest, reservas=reservations, mensagens=[{k: m[k] for k in ('direcao', 'texto', 'quando')} for m in chat.rows('mensagens') if (guest['telefone'] is not None and m['telefone'] == guest['telefone']) or m.get('hospede_id') == guest['id']])
     if path == '/api/reservas':
         if method == 'POST':
             return 201, store.reserva(db, body)
@@ -247,5 +255,18 @@ def main():
     server.add_argument('--porta', type=int, default=8080)
     server.add_argument('--host', default='127.0.0.1')
     server.add_argument('--dados', default='dados')
+    for name, flag in (('backup', '--saida'), ('restaurar', '--entrada'), ('raiox', '--acompanhamento')):
+        command = commands.add_parser(name)
+        command.add_argument('--dados', required=True)
+        command.add_argument(flag, required=True)
+        if name == 'raiox':
+            command.add_argument('--mes', required=True)
     args = parser.parse_args()
-    serve(args)
+    if args.command == 'serve':
+        serve(args)
+    elif args.command == 'backup':
+        backup(args.dados, args.saida)
+    elif args.command == 'restaurar':
+        restore(args.dados, args.entrada)
+    else:
+        export(Store(args.dados), args.mes, args.acompanhamento)

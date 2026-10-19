@@ -17,4 +17,4 @@ Sistema de reservas para pousada/hotel pequeno: inventário por noite, tarifas p
 When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one-line rule under ## Lessons, so it never happens again.
 
 ## Lessons
-- (vazio — primeira lição entra aqui)
+- Ao responder atendimento sem hóspede cadastrado, obter o telefone do próprio atendimento; verificar também esse caminho sem cadastro.
