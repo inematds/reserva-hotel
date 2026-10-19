@@ -15,3 +15,4 @@
 
 | 2026-10-19 14:23 | Suíte mantém test_reimportacao_substitui_e_mantem_hospedada: helper reutiliza UID; §11 exige atualizar sem contar importação | Implementar páginas e repetir suíte sem alterar teste/spec | 97 passed / 1 failed; resultado iCal 0/0 conforme contrato, portão humano permanece | prompt |
 | 2026-10-19 14:23 | Smoke separado perdeu processo HTTP ao terminar o comando pai | Manter servidor e navegador sob um subprocesso com finally | UI OK; somente PID criado foi encerrado | infra |
+| 2026-10-19 14:27 | tests/test_ical.py:87 reutiliza UID e espera 1/1; §11: "se já existe, atualiza as datas (se confirmada) e não conta em importadas" | Repetir suíte preservando teste/spec/identidade UID | 97 passed / 1 failed; retorno 0/0, portão humano permanece | prompt |

@@ -1,9 +1,9 @@
 # Plano
 
 ## Estratégia atual
-Páginas da seção 15 entregues e smoke local aprovado. Todos os 97 testes sem conflito passam. Resta o portão humano iCal; preservar implementação por UID e contrato congelado. Sem commit, APIs reais ou deploy.
+Implementação v0.9.0 mantida. Suíte: 97 passed / 1 failed; LIMITES OK. Backup online adicional aprovado. O conflito iCal permanece portão humano; não adaptar identidade UID ao fixture nem repetir ciclos sem mudança útil.
 
 ## Próximos 3 passos
-1. Humano revisar conflito de tests/test_ical.py:87 com §11 e, se apropriado, corrigir/recongelar o fixture; o agente não altera teste nem especificação.
-2. Complementar validação humana das páginas (formulários de reserva/cadastros, bloqueios, atendimento e importação); smoke automatizado deste ciclo cobriu chat/login/cadastro de hóspede/logout e responsividade.
-3. Após resolução do portão, repetir suíte completa + limites; só então marcar concluído e encaminhar verificação independente/Docker ao humano, sem rede externa neste loop.
+1. Humano revisar tests/test_ical.py:87 contra §11 e resolver/recongelar o contrato: o helper reutiliza UID, mas espera cancelamento e nova importação.
+2. Completar validação humana das operações da página da equipe e Docker (nível 4), fora deste loop sem rede externa.
+3. Após resolução humana, repetir suíte completa e limites; marcar concluído apenas com ambos aprovados. Manter o ensaio adicional de backup online disponível para regressão.

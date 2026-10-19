@@ -1,19 +1,9 @@
-...F...........................................F........................ [ 73%]
+...............................................F........................ [ 73%]
 ..........................                                               [100%]
 =================================== FAILURES ===================================
-_________________________________ test_paginas _________________________________
-
-api = <conftest.Cliente object at 0xf75c45890740>
-
-    def test_paginas(api):
-        st, html = api.get("/", token=None)
->       assert st == 200 and 'id="chat"' in html
-E       assert (404 == 200)
-
-tests/test_basico.py:37: AssertionError
 ________________ test_reimportacao_substitui_e_mantem_hospedada ________________
 
-api = <conftest.Cliente object at 0xf75c45702cc0>
+api = <conftest.Cliente object at 0xf94391ceef30>
 
     def test_reimportacao_substitui_e_mantem_hospedada(api):
         texto = ics(("20261105", "20261107", "A"), ("20261006", "20261008", "B"))
@@ -31,6 +21,5 @@ E         Use -v to get more diff
 
 tests/test_ical.py:87: AssertionError
 =========================== short test summary info ============================
-FAILED tests/test_basico.py::test_paginas - assert (404 == 200)
 FAILED tests/test_ical.py::test_reimportacao_substitui_e_mantem_hospedada - a...
-2 failed, 96 passed in 20.78s
+1 failed, 97 passed in 26.05s
