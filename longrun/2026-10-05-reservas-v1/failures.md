@@ -12,3 +12,6 @@
 | 2026-10-19 14:16 | test_equipe_responde_e_encerra_pela_pagina: conexão fechada por action local ocultando função importada | Usar alias team_action | Corrigido: 16 integrações aprovadas na suíte final; 93 passed / 5 failed (Docker 3, páginas 1, conflito iCal 1) | infra |
 
 | 2026-10-19 14:19 | Suíte mantém falha de páginas (404) e conflito iCal em test_reimportacao_substitui_e_mantem_hospedada (§11: mesmo UID atualiza, não importa) | Entregar Docker e repetir suíte sem alterar teste/spec | 96 passed / 2 failed; três falhas Docker resolvidas, iCal retorna 0/0 conforme contrato | infra (páginas ausentes) e prompt (fixture iCal) |
+
+| 2026-10-19 14:23 | Suíte mantém test_reimportacao_substitui_e_mantem_hospedada: helper reutiliza UID; §11 exige atualizar sem contar importação | Implementar páginas e repetir suíte sem alterar teste/spec | 97 passed / 1 failed; resultado iCal 0/0 conforme contrato, portão humano permanece | prompt |
+| 2026-10-19 14:23 | Smoke separado perdeu processo HTTP ao terminar o comando pai | Manter servidor e navegador sob um subprocesso com finally | UI OK; somente PID criado foi encerrado | infra |

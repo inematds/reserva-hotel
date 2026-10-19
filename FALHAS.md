@@ -2,6 +2,7 @@
 
 | data | o que quebrou | menor correção | prompt \| infra |
 |---|---|---|---|
+| 2026-10-19 14:23 | Chat e página da equipe retornavam 404 | Servir arquivos explícitos de web/ e ligar formulários às rotas existentes; test_paginas e smoke de navegador aprovados | infra |
 | 2026-10-19 14:19 | Dockerfile, compose e ambiente de exemplo ausentes | Adicionar entrega da seção 20 e contexto mínimo da imagem; três falhas resolvidas, suíte 96 passed / 2 failed | infra |
 | 2026-10-19 14:16 | Atendimento Telegram e avisos ausentes | Acrescentar adaptador por ambiente e compartilhar ações existentes; 16 testes de integrações aprovados | infra |
 | 2026-10-19 14:15 | Responder pela página fechava conexão: variável local action ocultava função importada | Alias team_action para operação compartilhada do atendimento | infra |

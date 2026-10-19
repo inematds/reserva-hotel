@@ -18,3 +18,5 @@
 - 2026-10-19 14:16 · Telegram reutiliza as operações de responder/encerrar via team_action e as leituras de dia/ocupação da API; envios síncronos com timeout de 3s, sem proxy/redirect, falha de transporte não impede a operação local. IDs da abertura e dos encaminhamentos persistem para respostas após reinício.
 
 - 2026-10-19 14:19 · Docker usa python:3-slim sem instalação de pacotes e COPY limitado por .dockerignore; compose monta ./dados em /dados, compatível com o preparo local do README. Integrações vazias por padrão, porta publicada só em loopback. Build real fica para validação independente humana; nenhum pull/download neste ciclo.
+
+- 2026-10-19 14:23 · Páginas §15 em HTML/CSS/JS locais, sem frameworks ou fontes externas; layout claro para operação na recepção, tabelas com rolagem própria no celular. Campos tipados para todos os cadastros; temporada recebe preços por tipo, iCal apenas arquivo local. Token não persiste no navegador; nenhuma integração foi ativada. Contexto visual registrado aqui para respeitar o escopo congelado (sem novos PRODUCT.md/DESIGN.md na raiz).

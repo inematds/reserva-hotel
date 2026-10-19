@@ -10,3 +10,4 @@
 | 2026-10-19 14:16 | Telegram atendimento/comandos/avisos, v0.7.0; 93 passed / 5 failed; 16 integrações aprovadas na suíte final; ensaio local persistência/opt-out OK; LIMITES OK | sem commit (loop externo) | parcial, portão iCal humano | — | 0 |
 
 | 2026-10-19 14:19 | Entrega Docker/compose/env/.dockerignore, v0.8.0 e estado README; 96 passed / 2 failed em 23.52s; LIMITES OK; build real não executado | sem commit (loop externo) | parcial, páginas e portão iCal humano | — | 0 |
+| 2026-10-19 14:23 | Páginas chat/equipe completas em web/, rotas estáticas explícitas, v0.9.0; 97 passed / 1 failed em 21.04s; LIMITES OK; smoke real desktop/mobile passou; revisão estática/visual sem bloqueadores §15 | sem commit (loop externo) | parcial: somente portão humano iCal na suíte | — | 0 |
