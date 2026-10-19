@@ -235,7 +235,7 @@
     <h3>The independent verification (passed)</h3>
     <p>The agent never saw the last command: it looks for fixture values copied into the code, starts an inn that never appeared (other types, prices with cents, a winter low season, stay 4 pay 3, a 15 % discount, a 50 % deposit, another clock) and runs <code>docker build</code> with a healthcheck. Result on 2026-10-19: <code>INDEPENDENTE OK</code>. Run it again if you change the code.</p>
 <pre><span class="k">python3</span> -m pytest -q tests/                                        <span class="c"># 98 passed</span>
-<span class="k">bash</span> longrun/2026-10-05-reservas-v1/verificar-limites.sh              <span class="c"># LIMITES OK</span>
+<span class="k">bash</span> longrun/2026-10-05-reservas-v1/verificar-limites.sh              <span class="c"># LIMITES OK at close; now flags only guia/ and README.en/es (docs added later)</span>
 <span class="k">python3</span> longrun/2026-10-05-reservas-v1/verificar-independente.py     <span class="c"># INDEPENDENTE OK</span></pre>
   </div></div>
 

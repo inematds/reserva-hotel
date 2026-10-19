@@ -235,7 +235,7 @@
     <h3>La verificación independiente (aprobada)</h3>
     <p>El agente nunca vio el último comando: busca valores del fixture copiados en el código, levanta una posada que nunca apareció (otros tipos, precios con centavos, temporada baja de invierno, paquete 4 pagan 3, descuento del 15 %, seña del 50 %, otro reloj) y hace <code>docker build</code> con healthcheck. Resultado el 19/10/2026: <code>INDEPENDENTE OK</code>. Vuelve a correrlo si cambias el código.</p>
 <pre><span class="k">python3</span> -m pytest -q tests/                                        <span class="c"># 98 passed</span>
-<span class="k">bash</span> longrun/2026-10-05-reservas-v1/verificar-limites.sh              <span class="c"># LIMITES OK</span>
+<span class="k">bash</span> longrun/2026-10-05-reservas-v1/verificar-limites.sh              <span class="c"># LIMITES OK al cierre; hoy marca solo guia/ y README.en/es (docs posteriores)</span>
 <span class="k">python3</span> longrun/2026-10-05-reservas-v1/verificar-independente.py     <span class="c"># INDEPENDENTE OK</span></pre>
   </div></div>
 
