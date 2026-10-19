@@ -9,9 +9,9 @@ def eventos(texto):
     return re.findall(r"DTSTART;VALUE=DATE:(\d{8})\r\nDTEND;VALUE=DATE:(\d{8})", texto)
 
 
-def ics(*evs, dobrar=False, uid=True, vcal=True):
+def ics(*evs, dobrar=False, uid=True, vcal=True, inicio=1):
     linhas = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Airbnb Inc//Hosting Calendar 0.8.8//EN"] if vcal else []
-    for i, (de, ate, resumo) in enumerate(evs, 1):
+    for i, (de, ate, resumo) in enumerate(evs, inicio):
         linhas += ["BEGIN:VEVENT", f"DTSTART;VALUE=DATE:{de}", f"DTEND;VALUE=DATE:{ate}", "DTSTAMP:20261001T120000Z"]
         if uid:
             linhas.append(f"UID:ev{i}@airbnb.com")
@@ -82,7 +82,7 @@ def test_reimportacao_substitui_e_mantem_hospedada(api):
     ra = api.get("/api/reservas?checkin=2026-11-05")[1]["reservas"][0]
     rb = api.get("/api/reservas?checkin=2026-10-06")[1]["reservas"][0]
     assert api.post(f"/api/reservas/{rb['id']}/checkin", {})[0] == 200
-    texto2 = ics(("20261120", "20261122", "C"))                    # A e B sumiram do arquivo; C é nova
+    texto2 = ics(("20261120", "20261122", "C"), inicio=3)                  # A e B sumiram do arquivo; C é nova
     st, r = api.post("/api/ical/importar", {"origem": "airbnb", "tipo": "chale", "ics": texto2})
     assert (r["importadas"], r["canceladas"]) == (1, 1)
     xa = api.get(f"/api/reservas/{ra['id']}")[1]
