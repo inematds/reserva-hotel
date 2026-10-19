@@ -1,0 +1,2305 @@
+OpenAI Codex v0.163.0
+--------
+workdir: /home/nmaldaner/projetos/reserva-hotel
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)
+reasoning effort: medium
+reasoning summaries: none
+session id: 01a15510-5196-7b10-9f85-48cc0bed20d2
+--------
+user
+Você está num ciclo de uma execução longa no repo /home/nmaldaner/projetos/reserva-hotel.
+
+RESULTADO: `./reserva` (Python 3, só biblioteca padrão; código em `src/` e páginas em `web/`) implementa docs/ESPECIFICACAO.md por inteiro — reservas de pousada/hotel pequeno com inventário por noite, tarifas por temporada, conversa (chat web + WhatsApp pela Evolution), ciclo da estadia, lista de espera, iCal para OTAs, equipe no Telegram, cadastros, backup, Raio-X e Docker.
+
+ANTES DE AGIR: leia longrun/2026-10-05-reservas-v1/goal.md → state.md → plan.md → canal.md → últimas linhas de progress.md e failures.md. Na primeira vez, leia docs/ESPECIFICACAO.md inteiro e tests/conftest.py.
+
+NESTE CICLO: escolha a próxima ação útil (comece pela base: `./reserva serve` imprimindo `PORTA=<n>`, SQLite em --dados, semente de pousada.json, auth; depois inventário/disponibilidade → tarifas (Decimal, ROUND_HALF_UP) → reservas/check-in/check-out/no-show/bloqueios → conversa → lembrete/espera/pós-estadia → cancelamento → LGPD → raiox → cadastros/backup → iCal → Evolution → Telegram → Docker/README → páginas), implemente, rode `python3 -m pytest -q tests/` (leva segundos). Leia só o fim da saída (`| tail -n 30`); saída longa vai para arquivo.
+
+AO TERMINAR O CICLO (obrigatório):
+- reescreva state.md (Funciona / Falta / Como retomar) e plan.md (próximos 3 passos);
+- acrescente 1 linha em progress.md: data-hora, o que mudou, resultado do pytest (N passed / N failed);
+- se algo deu errado, 1 linha em failures.md: erro → tentativa → resultado;
+- decisões de design em decisions.md; fatos e armadilhas novos em canal.md (só acrescentar);
+- quando `python3 -m pytest -q tests/` passar inteiro E `bash longrun/2026-10-05-reservas-v1/verificar-limites.sh` imprimir LIMITES OK, escreva "concluído" na primeira linha de "## Funciona" do state.md.
+
+SE UM TESTE CONTRADIZ A ESPECIFICAÇÃO: não altere o teste nem a spec. Registre em failures.md (teste, trecho da spec, o conflito) e siga com os outros itens; isso é portão humano.
+
+INTEGRAÇÕES: Evolution e Telegram só pelas variáveis de ambiente da spec; teste só contra o servidor falso dos testes. Nunca chame api.telegram.org, uma Evolution real, nem busque calendário iCal por URL; nunca escreva URL externa no código.
+
+README: acrescente a seção "Deploy na VPS" (seção 20 da spec) SEM remover a seção "Como rodar no seu ambiente" nem a descrição do projeto; só atualize a linha de estado.
+
+RESTRIÇÕES: não altere tests/, pytest.ini, docs/, goal.md, hash-congelado.txt, congelar.sh, verificar-*, loop.env, prompt.md. Só biblioteca padrão do Python 3 (`python3`, não `python`). Nenhuma API, nenhuma rede externa, nenhuma chave. Servidor só em 127.0.0.1. Não use `pkill -f`; mate só o PID que você subiu. Não faça commit (o loop externo faz).
+
+2026-10-19T16:48:15.722295Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_token\", resource_metadata=\"https://mcp.magnific.com/.well-known/oauth-protected-resource\", scope=\"openid profile email mcp:custom-audience\"" })
+2026-10-19T16:48:16.381052Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_token\", resource_metadata=\"https://mcp.magnific.com/.well-known/oauth-protected-resource\", scope=\"openid profile email mcp:custom-audience\"" })
+2026-10-19T16:48:16.494528Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=\"https://ai.metricool.com/.well-known/oauth-protected-resource\"" })
+codex
+Vou ler o estado da execução e a especificação, escolher a próxima pendência e implementar. Depois rodarei os testes e a verificação de limites, registrando os resultados nos arquivos do ciclo.
+
+exec
+/bin/bash -lc 'pwd; for f in AGENTS.md CLAUDE.md context/overview.md context/current-state.md tasks/current.md handoffs/latest.md; do if [ -f "$f" ]; then echo "$f"; cat "$f"; fi; done' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+/home/nmaldaner/projetos/reserva-hotel
+CLAUDE.md
+# CLAUDE.md — reserva-hotel
+
+Sistema de reservas para pousada/hotel pequeno: inventário por noite, tarifas por temporada, conversa (chat web + WhatsApp pela Evolution), ciclo da estadia, lista de espera, iCal para OTAs, equipe pelo Telegram, LGPD e exportação para o Painel do Raio-X de Margem (pacote `hotel`).
+
+- Repo local (sem remoto ainda). Autor de commit: `inematds <inematds@gmail.com>` (config local).
+- **Contrato:** `docs/ESPECIFICACAO.md`. Testes caixa-preta em `tests/` (pytest sobe `./reserva serve --porta 0`). Contrato e testes são **protegidos** durante a execução longa — só humano altera, e aí recongela o hash (`longrun/.../congelar.sh`).
+- Decisões pendentes: `docs/DECISOES-ABERTAS.md`. Relação com o Raio-X: `docs/MAPA-RAIO-X.md`.
+- Execução longa: `longrun/2026-10-05-reservas-v1/` (método em `~/projetos/execucao-longa`). Como rodar: `README.md`, seção "Como rodar no seu ambiente".
+- `python3` (não existe `python` neste host). Sem dependência externa no v1 (biblioteca padrão + SQLite).
+- Nenhuma API (WhatsApp/Meta, Booking/Airbnb, LLM pago, Pix/PSP, OpenRouter, Groq) sem autorização explícita. Sem rede externa no código; nunca buscar iCal por URL.
+- Dinheiro: `decimal.Decimal`, arredondamento `ROUND_HALF_UP` a 2 casas (seção 4 da spec). Datas: check-in inclusivo, check-out exclusivo (seção 3).
+- Servidor de teste: só `127.0.0.1`, porta 0; matar só o PID que subiu (nunca `pkill -f`).
+- Versão em `VERSION` (semver do CLAUDE global: minor carrega o patch).
+
+## Self-learning
+
+When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one-line rule under ## Lessons, so it never happens again.
+
+## Lessons
+- (vazio — primeira lição entra aqui)
+
+exec
+/bin/bash -lc 'for f in goal.md state.md plan.md canal.md; do echo "$f"; cat "longrun/2026-10-05-reservas-v1/$f"; done; tail -n 15 longrun/2026-10-05-reservas-v1/progress.md; tail -n 15 longrun/2026-10-05-reservas-v1/failures.md' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+goal.md
+# Goal — reservas-v1
+
+- **Início:** (preencher ao iniciar) · **Agente:** `codex exec` (gpt-6-astra, assinatura) em loop headless — `tools/loop-longrun.sh` · alternativa: `/goal` no Codex TUI ou no Claude Code
+- **Tetos:** 20 ciclos × 30 min (≤ 10 h) · memória 8G por ciclo · estagnação 3 ciclos
+
+## Resultado
+`./reserva` sobe um sistema de reservas para uma pousada/hotel pequeno — inventário por noite (tipos e quartos), tarifas por temporada com pacote de baixa e desconto de reserva direta, cotação/reserva/cancelamento pela conversa (chat web e WhatsApp pela Evolution), lembrete com pré-check-in, check-in/check-out/no-show pela equipe, lista de espera, pós-estadia com consentimento, exportação e importação iCal para as OTAs, origem da reserva, cadastros, backup, equipe pelo Telegram, exportação para o Painel do Raio-X (pacote `hotel`) e entrega em Docker para VPS —, conforme `docs/ESPECIFICACAO.md`.
+
+## Especificação
+**`docs/ESPECIFICACAO.md`** (contrato completo, congelado). Contexto: `docs/MAPA-RAIO-X.md`. Fora do escopo: seção 14 da especificação.
+
+## Critérios de pronto (verificáveis)
+
+**Função**
+- [ ] `python3 -m pytest -q tests/` → **98 passed**, 0 failed, 0 errors, 0 skipped
+
+**Regressão**
+- [ ] a mesma suíte inteira no teste final (o loop só fecha se todas passam juntas; teste que passava e voltou a falhar impede o fecho)
+- [ ] `./reserva serve` reiniciado com o mesmo `--dados` mantém o estado (coberto por `test_estado_persiste_ao_reiniciar`, `test_lembrete_sobrevive_a_reinicio` e `test_semente_so_na_primeira_vez_e_escalar_relido`)
+
+**Limite**
+- [ ] `bash longrun/2026-10-05-reservas-v1/verificar-limites.sh` → `LIMITES OK` (hash do contrato = `hash-congelado.txt`, nº de testes coletados igual, só arquivos do escopo — `reserva`, `src/`, `web/`, `exemplos/`, `README.md`, `VERSION`, `Dockerfile`, `docker-compose.yml`, `.env.exemplo`, `.dockerignore`, `.gitignore`, `CLAUDE.md`, `FALHAS.md`, esta pasta —, sem SDK/dependência externa, sem URL externa, sem chave de API, sem `0.0.0.0` no código)
+
+**Teste rápido por ciclo**: `python3 -m pytest -q tests/`
+**Teste completo no final**: `python3 -m pytest -q tests/ && bash longrun/2026-10-05-reservas-v1/verificar-limites.sh`
+
+**Depois do "concluído" (humano, nível 4):** `python3 longrun/2026-10-05-reservas-v1/verificar-independente.py` → `INDEPENDENTE OK` (sem valores do fixture no código + pousada nunca vista, com tipos, preços, temporadas e políticas diferentes + `docker build` e healthcheck do container) e abrir `/` e `/equipe` no navegador.
+
+## Restrições
+- só pela assinatura; nenhuma API, nenhuma rede externa, nenhuma dependência fora da biblioteca padrão do Python (decisão 2 de `docs/DECISOES-ABERTAS.md`)
+- não mexer em: `tests/`, `pytest.ini`, `docs/` (inclusive `ESPECIFICACAO.md`), `goal.md`, `hash-congelado.txt`, `congelar.sh`, `verificar-*.{sh,py}`, `loop.env`, `prompt.md` (o hash congelado cobre `tests/`, `pytest.ini`, a spec e os dois verificadores)
+- `README.md`: acrescentar "Deploy na VPS" sem remover "Como rodar no seu ambiente" (o teste do README exige as duas)
+- servidor só em `127.0.0.1`; ao testar à mão, porta 0 e matar só o PID que subiu
+- nunca buscar URL externa (nem de iCal): a importação recebe o arquivo pelo corpo da requisição
+- no loop headless não fazer commit (o loop faz); no /goal interativo, commit local a cada checkpoint; nunca criar repo remoto nem fazer push
+
+## Portões humanos (parar e perguntar)
+- teste que contradiz a especificação (registrar em `failures.md` com o trecho exato e parar — não "ajustar" o teste)
+- qualquer chamada a API real (Evolution, Telegram, Booking/Airbnb, LLM, Pix) — durante a execução só os servidores falsos locais dos testes; dependência externa
+- deploy na VPS (é do humano, com as credenciais dele)
+- mudança de contrato, criar repo, push, publicar
+state.md
+# Estado — atualizado 2026-10-05 (planejamento)
+
+## Funciona
+- Nada implementado ainda: não existe `./reserva`, `src/` nem `web/`.
+- Pronto: `docs/ESPECIFICACAO.md` (contrato), `tests/` (98 testes caixa-preta, `python3 -m pytest -q --collect-only` → 98 collected; `python3 -m pytest -q` → 0 passed), `tests/fixtures/pousada.json`, `exemplos/pousada.json`, `docs/DECISOES-ABERTAS.md`, `docs/MAPA-RAIO-X.md`, esta pasta (goal, loop.env, prompts, congelar, verificadores).
+
+## Falta
+- Humano: responder `docs/DECISOES-ABERTAS.md` (ou "ok em tudo"), rodar `congelar.sh` e iniciar o loop ou o `/goal`.
+- Agente: toda a implementação (seções 1–20 da especificação), na ordem do `plan.md`.
+
+## Como retomar (comandos exatos)
+```
+cd ~/projetos/reserva-hotel
+python3 -m pytest -q tests/ | tail -n 3
+bash longrun/2026-10-05-reservas-v1/verificar-limites.sh
+```
+
+Ao retomar/após compactação: ler goal.md → state.md → plan.md → canal.md → fim de progress.md e failures.md.
+plan.md
+# Plano (reescrever, não acumular)
+
+## Estratégia atual
+Contrato (`docs/ESPECIFICACAO.md`) e 98 testes caixa-preta prontos; nenhuma implementação ainda. Após `congelar.sh`, implementar em camadas, do que destrava mais testes para o que destrava menos, rodando a suíte a cada passo.
+
+## Próximos passos
+1. Base: `./reserva serve` com `PORTA=<n>`, `--dados`, cópia de `exemplos/pousada.json`, SQLite com semente das listas, `X-Token`, `/api/saude`, `/api/tipos`, páginas `/` e `/equipe` (destrava `test_basico`).
+2. Inventário e tarifas: noites, livres por tipo/noite, validação 422/409, `/api/disponibilidade`, cálculo do total com `Decimal` e `ROUND_HALF_UP`, reservas/check-in/check-out/no-show/bloqueios/fechamentos/`/api/dia`/`/api/ocupacao` (destrava `test_inventario`, `test_tarifas`).
+3. Conversa, ciclo (lembrete/espera/pós-estadia), cancelamento, LGPD, Raio-X, cadastros/backup, iCal, Evolution, Telegram, Docker/README.
+canal.md
+# Canal — reservas-v1 (só acrescentar; nunca reescrever)
+
+Conhecimento do projeto que a compactação perde: fatos descobertos, aprendizados, glossário, armadilhas, onde estão as coisas.
+Não é estado da tarefa (isso vai em state/plan/progress). Preencha cedo — o hook avisa na faixa 1 (~50% do contexto).
+
+Formato: `- AAAA-MM-DD HH:MM · fato|aprendizado|glossário|armadilha · texto`
+
+# Progresso (só acrescentar)
+
+| data/hora | checkpoint | commit | critério atingido? | tokens in/cached/out | compactações |
+|---|---|---|---|---|---|
+# Falhas (só acrescentar; ao fim, a menor correção vira linha no FALHAS.md do projeto)
+
+| data | o que quebrou | tentativa | resultado | prompt \| infra |
+|---|---|---|---|---|
+
+exec
+/bin/bash -lc 'cat docs/ESPECIFICACAO.md' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+# Especificação v1 — reserva-hotel (contrato congelado)
+
+> Este arquivo é **protegido** durante a execução longa: o agente implementa contra ele e não o altera.
+> Os testes em `tests/` verificam exatamente o que está aqui. Mudança de contrato = humano edita, recongela o hash e reinicia o longrun.
+
+## 0. O que é
+
+Sistema de reservas para **uma pousada ou hotel pequeno**: inventário por noite (tipos de quarto e, opcionalmente, quartos numerados), tarifas por temporada, cotação e reserva pela conversa (chat web e WhatsApp), política de cancelamento e de sinal, lembrete com pré-check-in, check-in/check-out pela equipe, no-show, lista de espera, mensagem pós-estadia convidando a reservar direto, exportação/importação **iCal** para bloquear datas nas OTAs (Booking, Airbnb), registro da **origem** de cada reserva e exportação de números para o **Painel de Recuperação do Raio-X de Margem** (pacote `hotel`).
+
+Canais: **chat web**, **WhatsApp pela Evolution API** (seção 18) e caixa de saída **simulada** quando a Evolution não está configurada. Equipe interna atende pelo **Telegram** (seção 19) e pela página da equipe. Cadastros (seção 16), backup (seção 17) e entrega em **Docker** para VPS (seção 20).
+
+O que o v1 **não** faz está na seção 14.
+
+## 1. Execução
+
+- Ponto de entrada: arquivo executável `./reserva` na raiz do repo.
+- `./reserva serve --porta N --dados DIR [--host H]`
+  - `--porta 0` = porta livre escolhida pelo sistema. A **primeira linha** do stdout é `PORTA=<n>` (com flush), impressa quando o servidor já aceita conexões.
+  - Escuta em `--host` (padrão `127.0.0.1`; no Docker, `0.0.0.0` passado pelo comando do container — nunca escrito no código).
+  - `DIR/pousada.json` = configuração (seção 2). Se não existir, copiar `exemplos/pousada.json`.
+  - Todo o estado persiste em `DIR/` (ex.: SQLite). Reiniciar com o mesmo `DIR` mantém tudo.
+- **Relógio:** variável de ambiente `RESERVA_AGORA` (`AAAA-MM-DDTHH:MM`, hora local da pousada, sem fuso) fixa o "agora" do processo. Sem ela, usa o relógio real. **Hoje** = a data de "agora". Datas no contrato são sempre `AAAA-MM-DD`; horas `HH:MM`.
+- `./reserva raiox --dados DIR --mes AAAA-MM --acompanhamento ARQ` (seção 12).
+- `./reserva backup` / `./reserva restaurar` (seção 17).
+- Integrações externas **só** por variáveis de ambiente (seções 18–19). Sem elas, nenhuma chamada de rede sai do processo. Nenhuma URL externa, chave ou token escrito no código.
+- O servidor atende **várias conexões ao mesmo tempo** (ex.: `ThreadingHTTPServer`); os testes de concorrência abrem 10 conexões simultâneas. A criação de reserva é serializada (trava ou transação) para garantir a regra "sem overbooking" da seção 3.
+
+## 2. `pousada.json`
+
+```json
+{
+  "nome": "Pousada Vista da Serra",
+  "token": "segredo",                 // exigido no header X-Token das rotas da equipe
+  "ical_segredo": "outro-segredo",    // vai na URL dos calendários iCal (seção 11)
+  "checkin_hora": "14:00",
+  "checkout_hora": "11:00",
+  "janela_dias": 365,                 // até quantos dias à frente aceita check-in
+  "cancelamento_gratis_dias": 7,      // cancela sem custo até N dias antes do check-in (seção 10)
+  "sinal_pct": 30,                    // sinal = % do total (seção 4); cobrança é manual (seção 9)
+  "sinal_instrucoes": "Pix para a chave ... em até 24 horas.",
+  "desconto_direto_pct": 10,          // desconto para canal próprio (direta/balcão); 0 = nenhum
+  "beneficio_direto": "café da manhã incluso ...",
+  "pacote_baixa": {"noites": 3, "pagas": 2},   // na baixa temporada, 3 noites pagam 2; null = sem pacote
+  "lembrete_dias": 3,                 // lembrete + pré-check-in N dias antes do check-in
+  "pos_estadia_dias": 2,              // mensagem pós-estadia N dias depois do check-out
+  "tipos": [ { "id": "standard", "nome": "Standard", "unidades": 3, "adultos_max": 2, "criancas_max": 1,
+               "ocupacao_base": 2, "tarifa_base": 300.00, "pessoa_extra": 80.00 } ],
+  "quartos": [ { "id": "101", "tipo": "standard" } ],              // opcional
+  "temporadas": [ { "id": "natal", "nome": "Natal Luz", "tipo": "alta",   // alta | baixa | feriado
+                    "de": "2026-12-20", "ate": "2027-01-05", "precos": { "standard": 480.00 } } ],
+  "estadias_minimas": [ { "de": "2026-12-20", "ate": "2027-01-05", "noites": 3 } ],
+  "fechamentos": [ { "de": "2026-10-26", "ate": "2026-10-28", "motivo": "reforma" } ],
+  "faq": [ { "id": "pet", "perguntas": ["aceitam pet"], "resposta": "Aceitamos pets de até 10 kg." } ]
+}
+```
+
+- Valores em reais com até 2 casas decimais. `ocupacao_base` padrão 2.
+- `de`/`ate` de temporadas, estadias mínimas, fechamentos e bloqueios são **noites** (seção 3), ambas as pontas inclusivas.
+- Os campos escalares (`nome` … `pos_estadia_dias`) são relidos a cada início. Já `tipos`, `quartos`, `temporadas`, `estadias_minimas`, `fechamentos` e `faq` só **semeiam** o banco na primeira vez (banco vazio); depois o banco é a fonte e se edita pela API (seção 16).
+
+## 3. Noites, inventário e disponibilidade
+
+- **Noite `N`** = o período entre a data `N` e a data `N + 1`. Uma estadia tem `checkin` **inclusivo** e `checkout` **exclusivo**: ocupa as noites `checkin, checkin + 1, …, checkout − 1`; `noites = checkout − checkin` (dias), mínimo 1. Duas estadias `10→12` e `12→14` no mesmo quarto **não** se sobrepõem.
+- **Unidades do tipo** `T`: se houver ≥ 1 quarto cadastrado do tipo, é o nº de quartos do tipo (o campo `unidades` é ignorado); senão é `unidades` do tipo.
+- **Ocupadas(T, N)** = nº de reservas **ativas** do tipo (status `confirmada` ou `hospedada`) com `checkin ≤ N < checkout`.
+- **Bloqueadas(T, N)** = nº de bloqueios (seção 16) de quartos do tipo ou do próprio tipo com `de ≤ N ≤ ate`, mais `unidades(T)` se `N` cai num fechamento.
+- **Livres(T, N)** = `max(0, unidades(T) − ocupadas − bloqueadas)`.
+- **Estadia válida** (senão **422** `{"erro": <código>}`), na ordem: `formato` (datas `AAAA-MM-DD`, `adultos`/`criancas` inteiros); `datas` (`checkout ≤ checkin`; `checkin < hoje`; `checkin > hoje + janela_dias`); `tipo` (tipo inexistente nas rotas que recebem tipo → **404**; tipo inativo → 422 `tipo`); `capacidade` (`adultos < 1`, `adultos > adultos_max`, `criancas < 0`, `criancas > criancas_max`); `fechado` (alguma noite da estadia cai num fechamento); `estadia_minima` (alguma noite da estadia cai num período de `estadias_minimas` e `noites` é menor que o maior `noites` desses períodos → `{"erro": "estadia_minima", "minimo": M}`). Check-in **hoje** é válido (não depende da hora).
+- **Disponível** = `Livres(T, N) ≥ 1` para **toda** noite da estadia. Reserva sem isso → **409** `{"erro": "sem_disponibilidade"}`.
+- **Sem overbooking:** com `k` unidades livres e mais de `k` pedidos simultâneos para o mesmo tipo e as mesmas noites, exatamente `k` recebem 201 e os demais 409 (vale para `k = 1`: a última unidade).
+- Status de reserva: `confirmada` (criada), `hospedada` (check-in feito), `finalizada` (check-out feito), `cancelada`, `no_show`. Só `confirmada` e `hospedada` ocupam noites; `no_show` e `cancelada` liberam todas as noites da estadia; `finalizada` libera as noites `≥` a data do relógio no momento do check-out (check-out antecipado libera o restante). **Os campos `checkin`, `checkout` e `noites` da reserva nunca mudam**: a data real do check-out só vale para `Livres` (aqui) e para o calendário iCal (seção 11); pós-estadia (seção 9), listagens e `/api/dia` (seção 6) e Raio-X (seção 12) usam o `checkout` gravado na reserva.
+- **Origem** da reserva: `direta` (chat web / WhatsApp), `balcao` (equipe), `booking`, `airbnb`, `outra`. **Canal próprio** = `direta` + `balcao`.
+
+## 4. Tarifas (cálculo do total)
+
+Para uma estadia de tipo `T`, `adultos`, `criancas` e `origem`:
+
+1. **Diária(T, N)** = preço da **primeira temporada na ordem de cadastro** com `de ≤ N ≤ ate` **e** preço para `T` em `precos`; se nenhuma → `tarifa_base` de `T`. (Temporada que cobre a noite mas não tem preço para `T` é **ignorada** para `T`: nesse caso `detalhe.diarias[].temporada` é `null` e a noite **não** conta como noite de temporada baixa no item 3 — ex.: chalé sem preço na baixa paga `tarifa_base` e não ganha pacote.)
+2. **Pessoa extra** = `pessoa_extra(T) × max(0, adultos + criancas − ocupacao_base(T)) × noites`.
+3. **Pacote de baixa temporada**: `nb` = nº de noites da estadia cuja diária veio de temporada `tipo: "baixa"`; `k = (nb ÷ pacote_baixa.noites, divisão inteira) × (pacote_baixa.noites − pacote_baixa.pagas)`; **pacote** = soma das `k` **menores** diárias dessas noites (0 se `k = 0` ou `pacote_baixa` null).
+4. **Subtotal** = Σ diárias + pessoa extra − pacote.
+5. **Desconto direto** = `arred(subtotal × desconto_direto_pct ÷ 100)` se `origem` é canal próprio; senão 0.
+6. **Total** = subtotal − desconto direto. Nas rotas [R] a equipe pode informar `total` (ex.: valor que a OTA cobrou): aí vale o informado (2 casas) e `detalhe.informado = true`.
+7. **Sinal** = `arred(total × sinal_pct ÷ 100)` se canal próprio; para OTA, `0`.
+
+`arred` = arredondar a **2 casas, meio centavo para cima** (`ROUND_HALF_UP`): 28,985 → 28,99. Diárias e `pessoa_extra` já têm 2 casas; somas são exatas. Nas respostas, valores em reais são números JSON com até 2 casas (ex.: `540.0`, `260.86`); comparação exata.
+
+`detalhe` de uma cotação/reserva: `{"diarias": [{"data", "valor", "temporada": <id ou null>}], "pessoa_extra", "pacote_baixa", "subtotal", "desconto_direto", "informado": bool}`.
+
+Exemplo (fixture dos testes, 2 adultos, standard R$ 300, desconto 10 %, sinal 30 %): 2 noites em outubro = 600 − 60 = **540,00**, sinal **162,00**; origem `booking` = 600,00, sinal 0. Chalé R$ 289,85, 1 noite, direta: desconto 28,985 → **28,99**, total **260,86**, sinal 78,258 → **78,26**.
+
+## 5. Autenticação
+
+Rotas marcadas **[R]** (equipe) exigem header `X-Token` igual a `pousada.json.token`; sem ele ou errado → **401**. O token é checado **antes** de qualquer validação do corpo ou dos parâmetros (corpo vazio sem token → 401, nunca 400/422). Rotas públicas: `/`, `/equipe` (página; os dados vêm de rotas [R]), `/api/saude`, `GET /api/tipos`, `GET /api/disponibilidade`, `POST /api/mensagens`, `/ical/{ical_segredo}/…`. Webhooks têm segredo próprio (seções 18 e 19).
+
+## 6. API HTTP (JSON, UTF-8)
+
+| Método e rota | Corpo | Resposta |
+|---|---|---|
+| `GET /api/saude` | — | 200 `{"ok": true, "versao": "<conteúdo de VERSION>"}` |
+| `GET /api/tipos` | — | 200 `{"tipos": [{id, nome, unidades, adultos_max, criancas_max, ocupacao_base, tarifa_base, pessoa_extra}]}` só ativos, ordem de cadastro; `unidades` = efetivo (seção 3) |
+| `GET /api/disponibilidade?checkin=D&checkout=D&adultos=N[&criancas=N][&origem=O]` | — | 200 `{checkin, checkout, noites, adultos, criancas, origem, "opcoes": [{tipo, nome, disponiveis, total, sinal, beneficio, detalhe}]}`; só tipos ativos em que os hóspedes cabem (`adultos ≤ adultos_max` e `criancas ≤ criancas_max`) e com `disponiveis ≥ 1`, ordem de cadastro — nenhum cabe → `opcoes: []` com 200; `origem` padrão `direta`; `beneficio` = `beneficio_direto` para canal próprio, `null` para OTA. Aqui só valem as checagens `formato`, `datas`, `fechado` e `estadia_minima` da seção 3 (→ 422); `adultos < 1` ou `criancas < 0` → 422 `capacidade`; a capacidade por tipo **filtra**, não dá erro |
+| `POST /api/hospedes` [R] | `{nome, telefone, email?, documento?, consentimento_marketing?: bool}` | 201 `{id}`; telefone já cadastrado → 200 com o mesmo `{id}` (sem alterar o cadastro existente); telefone inválido → 400 |
+| `GET /api/hospedes?busca=T` [R] | — | 200 `{"hospedes": [{id, nome, telefone, email, documento, consentimento_marketing, nao_contatar}]}`; `busca` casa parte do nome (sem acento, sem caixa) ou dígitos do telefone; sem `busca` = todos; sempre em ordem de `id` |
+| `PUT /api/hospedes/{id}` [R] | campos parciais | 200 com o hóspede; telefone inválido → 400; telefone de outro → 409; inexistente → 404 |
+| `GET /api/hospedes/{id}/dados` [R] | — | 200 `{hospede, reservas, mensagens}` (seção 13) |
+| `DELETE /api/hospedes/{id}` [R] | — | 204; anonimiza (seção 13) |
+| `POST /api/reservas` [R] | `{hospede_id, tipo, checkin, checkout, adultos, criancas?, origem?, total?, observacoes?}` | 201 com a **reserva**; `origem` padrão `balcao`; sem unidade → 409; inválida → 422; hóspede ou tipo inexistente → 404 |
+| `GET /api/reservas?de=D&ate=D` [R] | — | 200 `{"reservas": [...]}` com alguma noite em `[de, ate]` (`ate` inclusivo), **todos os status**, ordem `checkin`, depois `id`. Filtros alternativos: `?checkin=D` (reservas com `checkin = D`), `?checkout=D`, `?hospede_id=N`; sem filtro = todas. Todos os filtros devolvem **todos os status** na **mesma ordem** (`checkin`, depois `id`) |
+| `GET /api/reservas/{id}` [R] | — | 200 reserva; 404 |
+| `PUT /api/reservas/{id}` [R] | `{hospede_id?, total?, observacoes?}` | 200 reserva; `total` novo recalcula `sinal` (canal próprio) e marca `detalhe.informado` |
+| `POST /api/reservas/{id}/cancelar` [R] | — | 200 `{status: "cancelada", gratis: bool}` (seção 10); dispara a lista de espera (seção 8); status diferente de `confirmada`/`hospedada` → 409 |
+| `POST /api/reservas/{id}/sinal` [R] | `{pago: bool}` | 200 `{sinal_pago}` |
+| `POST /api/reservas/{id}/checkin` [R] | `{quarto?}` | 200 `{status: "hospedada", quarto}`; só de `confirmada` (senão 409); `quarto` inexistente ou de outro tipo → 422; quarto com outra reserva ativa (`confirmada`/`hospedada`) atribuída a ele em alguma noite da estadia, ou bloqueado nela → 409; sem `quarto`: primeiro quarto do tipo, por ordem de `id`, livre nesse mesmo sentido, ou `null` se o tipo não tem quartos. Não depende do relógio |
+| `POST /api/reservas/{id}/checkout` [R] | — | 200 `{status: "finalizada"}`; só de `hospedada` (senão 409) |
+| `POST /api/reservas/{id}/no-show` [R] | — | 200 `{status: "no_show"}`; só de `confirmada` (senão 409); libera as noites e dispara a lista de espera |
+| `GET /api/dia?data=D` [R] | — | 200 `{data, "chegadas": [reservas com checkin = D e status confirmada\|hospedada], "saidas": [checkout = D e status hospedada\|finalizada], "hospedados": n}` (`hospedados` = reservas `hospedada` com `checkin ≤ D < checkout`); listas em ordem de `id` |
+| `GET /api/ocupacao?mes=AAAA-MM` [R] | — | 200 `{mes, unidades, "dias": [{data, ocupadas, bloqueadas, livres, "por_tipo": {<tipo>: {ocupadas, bloqueadas, livres}}}]}` um item por noite do mês |
+| `POST /api/espera` [R] | `{hospede_id, tipo, checkin, checkout, adultos, criancas?}` | 201 `{id}`; 404/422 como a reserva (sem checar disponibilidade) |
+| `GET /api/espera` [R] | — | 200 `{"espera": [{id, hospede_id, tipo, checkin, checkout, status}]}` em ordem de `id`; `status` ∈ `pendente, ofertado, reservado` |
+| `POST /api/tarefas/rodar` [R] | `{agora?}` (padrão = relógio do processo; informado = vale só nesta rodada, com `hoje` = data de `agora`) | 200 `{"enviadas": n, "reenviadas": n}`; `enviadas` = mensagens **novas criadas** nesta rodada (lembrete e pós-estadia), contadas mesmo que o envio pela Evolution falhe e elas fiquem `pendente`; `reenviadas` = seção 18; idempotente: rodar de novo no mesmo instante → `enviadas: 0` |
+| `GET /api/saida` [R] | — | 200 `{"mensagens": [{id, tipo, telefone, hospede_id, reserva_id, texto, status}]}` em ordem de criação. `tipo` ∈ `lembrete, espera, pos_estadia, humano` |
+| `POST /api/mensagens` | `{telefone, texto}` | 200 `{"respostas": [texto, ...]}` (seção 7) |
+| `GET /api/atendimento-humano` [R] | — | 200 `{"fila": [{id, telefone, nome, motivo, prioridade, status}]}` só os `aberto`; `prioridade` sempre `normal` no v1 |
+| `POST /api/atendimento-humano/{id}/responder` [R] / `…/encerrar` [R] | `{texto}` / — | 200 (seção 19) |
+| `POST /api/ical/importar` [R] | `{origem, tipo, quarto?, ics}` | 200 (seção 11) |
+| `GET /api/raiox?mes=AAAA-MM` [R] | — | 200 (seção 12) |
+| Cadastros | | seção 16 |
+
+**Reserva** (objeto): `{id, status, hospede_id, nome, telefone, tipo, quarto, checkin, checkout, noites, adultos, criancas, origem, total, sinal, sinal_pago, chegada_confirmada, pre_checkin, observacoes, gratis, ical_uid, detalhe, criada_em}`. `nome`/`telefone` vêm do hóspede (`null` sem hóspede); `quarto` `null` até o check-in; `gratis` `null` até cancelar; `pre_checkin` `null` até o hóspede responder (seção 9); `criada_em` = `AAAA-MM-DDTHH:MM` do relógio.
+
+Telefone: aceita com ou sem `+55`, espaços, parênteses e hífen; normaliza para `+55DDNNNNNNNNN` (DDD + 8 ou 9 dígitos). Regra por contagem de dígitos (depois de tirar tudo que não é dígito): **10 ou 11** dígitos = DDD + número; **12 ou 13** dígitos começando com `55` = país + DDD + número; qualquer outra quantidade → inválido (ex.: `(54) 99999-0001`, `+55 54 99999 0001` e `54 3333-4444` valem; `123`, `abc` e `+55 54 9999` não). Todas as respostas usam o telefone normalizado.
+
+Dinheiro em texto de conversa: `R$ 1.234,56` (ponto de milhar, vírgula decimal, sempre 2 casas). Datas em texto de conversa e avisos: `DD/MM`.
+
+## 7. Conversa (`POST /api/mensagens`)
+
+O texto é normalizado (minúsculas, sem acento) para decidir; datas e números são lidos do texto original. Ordem de decisão:
+
+1. **Parar** — texto igual a `parar`, `sair` ou `pare`: o telefone fica `nao_contatar` (no hóspede, se existir; senão guardado por telefone e aplicado ao hóspede quando for criado); resposta contém `não vai mais receber`. Nenhuma mensagem de saída (lembrete, espera, pós-estadia) vai mais para esse telefone.
+2. **Humano** — contém `atendente`, `humano` ou `falar com alguem`: fila humana (`prioridade: "normal"`); resposta contém `atendente`.
+3. **Fluxo em andamento** (abaixo) consome a mensagem. Dentro de qualquer fluxo, o texto `voltar` sai do fluxo sem efeito (resposta contém `ok`); a mensagem seguinte é tratada fora de fluxo.
+4. **Resposta a pendência** — se a última mensagem de saída para o telefone foi `lembrete` (sem resposta ainda): `1`/`sim`/`confirmo` → `chegada_confirmada: true`, resposta contém `confirmad` e `documento` e abre o fluxo **pré-check-in**; `2`/`cancelar`/`nao` → cancelamento da reserva do lembrete pela política (seção 10): grátis → cancela, resposta contém `cancelad`; fora do prazo → resposta contém `sinal` e `sim` e abre o fluxo **confirmar cancelamento**. Se foi `espera` (sem resposta): `1`/`sim` → cria a reserva (origem `direta`) se ainda disponível (resposta contém `reservad`), senão resposta contém `indispon` e a espera volta a `pendente`.
+5. **Cancelar** — contém `cancelar`: nenhuma reserva ativa (`confirmada`/`hospedada` com `checkout ≥ hoje`) no telefone → contém `nenhuma reserva`; senão lista `N) #<id> DD/MM a DD/MM <nome do tipo>` e pede o número (fluxo **cancelar**).
+6. **Minha reserva** — contém `minha reserva` ou `minhas reservas`: lista as reservas ativas do telefone (mesma definição da regra 5), uma linha `#<id> DD/MM a DD/MM <nome do tipo> — R$ <total> (sinal pago|sinal pendente)`; nenhuma → resposta contém `nenhuma reserva`.
+7. **Reservar / cotar** — contém `reservar`, `reserva`, `disponibilidade`, `vaga`, `quanto`, `diaria` ou `hospedar`: fluxo **cotar**; resposta contém `datas`.
+8. **FAQ** — palavras significativas (≥ 3 letras, fora de artigos/preposições/pronomes comuns) de alguma pergunta do FAQ: se ≥ 60 % delas aparecem no texto, responde **exatamente** a `resposta` daquele item (só ela, uma mensagem). Mais de um item casa → o de maior %; empate → o primeiro do FAQ.
+9. **Não entendi** — resposta contém `não entendi` e oferece `atendente`. Na **segunda** seguida sem entender, entra na fila humana automaticamente.
+
+**Fluxo cotar** (estado por telefone, persistido):
+- **Datas:** aceita `DD/MM[/AAAA] a DD/MM[/AAAA]` (separador `a`, `ate` ou `-`); sem ano → ano de hoje e, se a data ficar antes de hoje, o ano seguinte. Não reconhecida → repete a pergunta (contém `datas`). Datas que violam a seção 3 (`datas`, `fechado`, `estadia_minima`) → responde o motivo (`estadia_minima` → contém `mínimo` e o nº de noites) e repete a pergunta.
+- **Hóspedes:** resposta contém `hospedes`; aceita `N adulto(s)` e `M crianca(s)` (ordem livre; só um número = `N` adultos, 0 crianças). Não reconhecido → repete.
+- **Opções:** para cada tipo da disponibilidade (origem `direta`): `N) <nome> — <noites> noites — R$ <total> (sinal R$ <sinal>)` (`1 noite` no singular), depois o `beneficio_direto` e o pedido para responder o número. Nenhum tipo disponível → resposta contém `sem disponibilidade` e `lista de espera` e lista os tipos ativos com capacidade `N) <nome>`; número → entra na lista de espera (pedindo o nome antes, se o telefone é desconhecido); resposta contém `lista de espera`.
+- **Número** escolhido → telefone sem hóspede → pergunta o nome (contém `nome`); a próxima mensagem vira o nome e o hóspede é criado (`consentimento_marketing: false`). Cria a reserva com origem `direta`. Resposta contém `reservad`, `#<id>`, `DD/MM a DD/MM`, `R$ <total>`, `sinal` e o `sinal_instrucoes`. Se a unidade acabou nesse meio-tempo → contém `indispon` e sai do fluxo. Número inválido → repete as opções.
+
+**Fluxo pré-check-in:** a próxima mensagem do telefone (que não seja comando das regras 1–2) é guardada em `pre_checkin` da reserva; resposta contém `recebid`.
+
+**Fluxo cancelar:** número → reserva; grátis (seção 10) → cancela, resposta contém `cancelad` e `sem custo`; fora do prazo → contém `sinal` e `sim` (fluxo **confirmar cancelamento**): `sim` → cancela, contém `cancelad`; qualquer outra coisa → contém `mantida`, sai do fluxo.
+
+O bot **nunca** inventa preço fora da tabela (seção 4), nem promete quarto específico: fora das regras acima cai na 9.
+
+## 8. Lista de espera
+
+Ao liberar noites de um tipo (cancelamento pela API, pela conversa ou por reimportação iCal; no-show), percorrem-se os pedidos `pendente` daquele tipo em ordem de criação: o **primeiro** cuja estadia inteira está disponível (seção 3) e cujo hóspede não está `nao_contatar` recebe mensagem `tipo: "espera"` com `reserva_id: null`, texto contendo `DD/MM a DD/MM`, o nome do tipo, `R$ <total>` (origem `direta`) e `1`; o pedido fica `ofertado`. Uma oferta por liberação. Resposta `1` → seção 7, regra 4; reserva criada → pedido `reservado`.
+
+## 9. Ciclo da estadia (`POST /api/tarefas/rodar`)
+
+- **Lembrete + pré-check-in:** toda reserva `confirmada` com hóspede, `checkin − lembrete_dias ≤ hoje < checkin` (hoje = data de `agora`) e ainda sem lembrete → mensagem `tipo: "lembrete"` com `reserva_id`. Texto contém `DD/MM` do check-in, o nome do tipo, `checkin_hora`, `1` (confirmar chegada e enviar documentos) e `2` (cancelar); se `sinal_pago` é falso e a origem é canal próprio, contém a palavra `sinal`; senão **não** contém. Uma vez por reserva. Reservas importadas (sem hóspede) não recebem.
+- **Pós-estadia:** toda reserva `finalizada` com hóspede, `checkout + pos_estadia_dias ≤ hoje` (`checkout` = o gravado na reserva, não a data real de um check-out antecipado), ainda sem envio, hóspede com `consentimento_marketing: true` → mensagem `tipo: "pos_estadia"`; texto contém `reservar direto` e o `beneficio_direto`. Uma vez por reserva.
+- Hóspede `nao_contatar` nunca recebe: a mensagem **não é criada** (não aparece em `/api/saida` nem conta em `enviadas`). Lembrete **não** depende de `consentimento_marketing` (execução do contrato, LGPD art. 7º, V); pós-estadia **depende** (marketing, art. 7º, I).
+- **Sinal:** política escrita só. A equipe marca `sinal_pago` à mão (`POST /api/reservas/{id}/sinal`); nada expira sozinho.
+- **Check-in / check-out / no-show:** só pela equipe (seção 6). Check-in atribui o quarto.
+
+## 10. Cancelamento
+
+`gratis = (hoje + cancelamento_gratis_dias ≤ checkin)`, com `hoje` = data do relógio **no momento do cancelamento**. Exemplo (fixture, 7 dias, hoje 06/10): check-in 13/10 → grátis; 12/10 → fora do prazo. Fora do prazo o sinal fica retido (política escrita; nenhuma cobrança automática). A resposta do cancelamento sempre traz `gratis`. Cancelamento por reimportação iCal (seção 11) tem `gratis: true`.
+
+## 11. iCal (OTAs)
+
+**Exportação** — `GET /ical/{ical_segredo}/tipo/{tipo}.ics` e `GET /ical/{ical_segredo}/quarto/{quarto}.ics` (segredo errado ou id inexistente → 404). `Content-Type: text/calendar`, linhas terminadas em CRLF. Conteúdo: `BEGIN:VCALENDAR`, `VERSION:2.0`, `PRODID:-//reserva-hotel//PT`, um `VEVENT` por **sequência contígua** de noites indisponíveis, **em ordem cronológica**, cada um com as propriedades **nesta ordem, uma por linha**: `BEGIN:VEVENT`, `UID:<tipo-ou-quarto>-<AAAAMMDD da primeira noite>@reserva-hotel`, `DTSTAMP:<AAAAMMDDTHHMMSSZ do relógio do processo>`, `DTSTART;VALUE=DATE:<AAAAMMDD da primeira noite>`, `DTEND;VALUE=DATE:<AAAAMMDD do dia seguinte à última noite>` (exclusivo, RFC 5545; vem **imediatamente** depois de `DTSTART`), `SUMMARY:Indisponível`, `END:VEVENT`; por fim `END:VCALENDAR`. Noite indisponível: no calendário do **tipo**, `Livres(T, N) = 0`; no calendário do **quarto**, noites em que o tipo está lotado **ou** o quarto está bloqueado **ou** há reserva ativa (`confirmada`/`hospedada`) com esse `quarto` atribuído (pelo check-in ou pela importação por quarto). Janela: de hoje até `hoje + janela_dias`.
+
+**Importação** — `POST /api/ical/importar` [R] `{"origem": "booking"|"airbnb"|"outra", "tipo", "quarto"?, "ics": "<texto do arquivo>"}` → 200 `{"importadas": n, "canceladas": n, "conflitos": [ids]}`.
+- Validação: `origem` fora de `booking`/`airbnb`/`outra` → 422; `tipo` inexistente → 404; `quarto` informado precisa ser do `tipo` (senão 422).
+- Leitura: linhas separadas por CRLF ou LF; linha que começa com espaço ou tabulação continua a anterior (dobra); cada `VEVENT` precisa de `UID` e `DTSTART` (`VALUE=DATE` `AAAAMMDD`; se vier data-hora, usa-se só a data); `DTEND` ausente → 1 noite. Sem `BEGIN:VCALENDAR` ou evento sem `UID`/`DTSTART` → 422. Eventos cujo `DTEND ≤ hoje` são ignorados.
+- Cada evento vira uma **reserva** `status: "confirmada"`, `origem` dada, `hospede_id: null`, `adultos`/`criancas` `null`, `total: null`, `sinal: 0`, `quarto` (se informado), `ical_uid = UID`, `checkin = DTSTART`, `checkout = DTEND`. Chave de idempotência `(origem, tipo, quarto, ical_uid)`: se já existe, atualiza as datas (se `confirmada`) e não conta em `importadas`.
+- Reimportação **substitui** o conjunto: reservas `confirmada` com a mesma `(origem, tipo, quarto)` cujo `ical_uid` não está no arquivo viram `cancelada` (`gratis: true`, contam em `canceladas`, disparam a seção 8). `hospedada`/`finalizada` ficam.
+- A importação **não** checa capacidade (a OTA já vendeu): `conflitos` = ids das reservas ativas da pousada (não importadas) do mesmo tipo que, em alguma noite, ficam com `ocupadas + bloqueadas > unidades`; `Livres` nunca fica negativo. Não manda aviso ao Telegram nem lembrete.
+- Nada busca URL externa: o arquivo chega pelo corpo da requisição (baixado pela equipe). Sincronização por URL está fora do v1.
+
+## 12. Exportação para o Raio-X (Painel de Recuperação)
+
+`GET /api/raiox?mes=AAAA-MM` → `{"pacote": "hotel", "mes": "AAAA-MM", "valores": {...}, "indicadores": {...}}`. Em `valores` só **ids do pacote `hotel`** (`raio-x-margem/setores/hotel.js`); em `indicadores`, números úteis ao dono que não são entradas do pacote. Percentuais com 1 casa, reais com 2, inteiros inteiros; arredondamento meio para cima.
+
+Definições (reservas "do mês" = `checkin` no mês e status ∈ `confirmada, hospedada, finalizada`; "noites no mês" = noites da estadia — `checkin` … `checkout − 1` **gravados na reserva**, não a data real de um check-out antecipado — com data dentro do mês):
+
+- `uhs` = Σ unidades efetivas dos tipos ativos.
+- `reservas_mes` = nº de reservas do mês (importadas incluídas).
+- `valor_reserva` = média de `total` das reservas do mês com `total` não nulo (0 se nenhuma).
+- `faturamento` = Σ, sobre **todas** as reservas com status ∈ `confirmada, hospedada, finalizada` (qualquer mês de check-in), de `total × noites no mês ÷ noites` (total nulo = 0), arredondado no fim.
+- `receita_ota` = o mesmo só para origem `booking`, `airbnb`, `outra`.
+- `cancelamentos_mes` = reservas com `checkin` no mês e status `no_show`, ou `cancelada` com `gratis: false`.
+- `nao_cobrado_pct` = % dessas com `sinal_pago: false` (0 se nenhuma).
+- `retorno_atual_pct` = % das reservas do mês **com hóspede** cujo hóspede tem outra reserva `finalizada` com `checkout` nos 365 dias anteriores ao `checkin` (0 se nenhuma).
+- `ocupacao_baixa_pct` e `diaria_baixa` = `indicadores.ocupacao_pct` e `indicadores.diaria_media`, **presentes só se ≥ 50 % das noites do mês caem em temporada `tipo: "baixa"`** (pela regra 1 da seção 4, sem exigir preço); senão as chaves não aparecem.
+
+`indicadores`: `noites_ocupadas` = Σ noites no mês das reservas com status ∈ `confirmada, hospedada, finalizada`; `noites_disponiveis` = `uhs × dias do mês − noites bloqueadas` (bloqueios de quarto/tipo e fechamentos, por unidade); `ocupacao_pct` = `noites_ocupadas ÷ noites_disponiveis × 100` (0 se disponíveis = 0); `diaria_media` = `faturamento ÷ noites_ocupadas` (0 se nenhuma); `reserva_direta_pct` = `(faturamento − receita_ota) ÷ faturamento × 100` (0 se faturamento 0).
+
+`./reserva raiox --dados DIR --mes M --acompanhamento ARQ`: lê `ARQ` (formato do `raio-x-margem/app/painel-motor.js`: `{tipo: "acompanhamento", pacote, cliente, base: {data, valores}, meses: [{mes, valores, obs}]}`), insere ou substitui o mês `M` com `valores` = os de `valores` da rota acima (**nunca** os de `indicadores`) **mesclados** sobre os valores do mês anterior (ou da base) e `obs: "reserva-hotel"`, e grava de volta. Campos que o sistema não mede (ex.: `comissao_ota_pct`, `fat_cartao`) ficam como estavam. Sai com código 0.
+
+## 13. LGPD
+
+- `GET /api/hospedes/{id}/dados` devolve tudo o que há do hóspede: `hospede` `{id, nome, telefone, email, documento, consentimento_marketing, nao_contatar}`, `reservas` (mesmo formato da listagem) e `mensagens` = recebidas e enviadas, cada uma `{direcao: "entrada" | "saida", texto, quando}`.
+- `DELETE /api/hospedes/{id}`: nome vira `removido`, `telefone`, `email` e `documento` viram `null`, `pre_checkin` e `observacoes` das reservas dele viram `null`, reservas `confirmada` viram `cancelada` (`hospedada`/`finalizada`/`no_show` ficam), textos de mensagens dele viram `""`. Depois disso, mensagens ao telefone antigo são tratadas como de telefone desconhecido. Números agregados do `/api/raiox` continuam contando as estadias passadas.
+
+## 14. Fora do v1 (não implementar; portão humano ou próxima versão)
+
+Pagamento (Pix/PSP, cartão, cobrança automática do sinal ou de no-show) e expiração automática de reserva sem sinal; **sincronização iCal por URL** (buscar o calendário da OTA pela rede) e channel manager/API da Booking, Airbnb ou Expedia; WhatsApp Cloud API oficial da Meta (v1 usa a Evolution); SMS/e-mail; catálogo e venda de **extras** (jantar, transfer, late check-out pago); preço dinâmico por demanda; alocação de quarto na hora da reserva (v1 aloca no check-in); overbooking controlado; várias pousadas no mesmo servidor; login por usuário; nota fiscal; LLM nas respostas (pode entrar depois atrás de uma opção desligada por padrão; os testes nunca a usam); interface EN/ES; deploy na VPS (é do humano: README explica).
+
+## 15. Páginas
+
+- `GET /` → HTML do chat do hóspede, com elemento `id="chat"`, que usa `/api/mensagens`.
+- `GET /equipe` → HTML da equipe com elementos `id="mapa"` (ocupação por noite), `id="chegadas"` (chegadas e saídas do dia), `id="reservas"`, `id="fila-humano"` e `id="cadastros"`; pede o token e usa as rotas [R] (reservas com sinal/check-in/check-out/no-show/cancelar, cadastros, bloqueios, fila humana com responder/encerrar, importação iCal por arquivo).
+
+## 16. Cadastros [R]
+
+| Método e rota | Corpo | Resposta |
+|---|---|---|
+| `GET /api/tipos` (público) | — | só os ativos (seção 6) |
+| `POST /api/tipos` | `{id, nome, unidades, adultos_max, criancas_max, ocupacao_base?, tarifa_base, pessoa_extra}` | 201; `id` repetido → 409 |
+| `PUT /api/tipos/{id}` | campos parciais | 200 com o tipo; inexistente → 404 |
+| `DELETE /api/tipos/{id}` | — | 200 `{"ativo": false}`. Inativo some de `/api/tipos`, da disponibilidade e do chat, e não aceita reserva nova (422 `tipo`); as reservas já feitas continuam |
+| `GET /api/quartos` | — | 200 `{"quartos": [{id, tipo}]}` ordem de `id` |
+| `POST /api/quartos` | `{id, tipo}` | 201; `id` repetido → 409; tipo inexistente → 422. Passa a contar nas unidades do tipo (seção 3) |
+| `DELETE /api/quartos/{id}` | — | 204; quarto com reserva `hospedada` → 409 |
+| `GET /api/temporadas` | — | 200 `{"temporadas": [{id, nome, tipo, de, ate, precos}]}` na ordem de cadastro |
+| `POST /api/temporadas` | `{id, nome, tipo, de, ate, precos}` | 201 (entra no **fim** da ordem); `id` repetido → 409; `tipo` fora de `alta\|baixa\|feriado` ou `ate < de` → 422 |
+| `DELETE /api/temporadas/{id}` | — | 204 |
+| `GET /api/estadias-minimas` / `POST` `{de, ate, noites}` / `DELETE /api/estadias-minimas/{id}` | | 200 `{"estadias_minimas": [{id, de, ate, noites}]}` em ordem de `id` (os semeados do `pousada.json` vêm primeiro, na ordem do arquivo) / 201 `{id}` / 204 |
+| `GET /api/fechamentos` / `POST` `{de, ate, motivo}` / `DELETE /api/fechamentos/{id}` | | 200 `{"fechamentos": [{id, de, ate, motivo}]}` em ordem de `id` / 201 `{id, conflitos}` / 204 |
+| `GET /api/bloqueios[?quarto=Q]` | — | 200 `{"bloqueios": [{id, quarto, tipo, de, ate, motivo}]}` em ordem de `id` |
+| `POST /api/bloqueios` | `{quarto, de, ate, motivo}` **ou** `{tipo, de, ate, motivo}` | 201 `{id, conflitos}`; quarto/tipo inexistente → 422 |
+| `DELETE /api/bloqueios/{id}` | — | 204 e libera |
+| `GET /api/faq` / `POST /api/faq` `{perguntas, resposta}` / `DELETE /api/faq/{id}` | | 200 `{"faq": [{id, perguntas, resposta}]}` em ordem de cadastro (os semeados mantêm o `id` do `pousada.json`, na ordem do arquivo; os criados pela API ganham `id` gerado e entram no fim) / 201 `{id}` (o bot passa a usar na hora) / 204 (para de usar na hora) |
+
+`conflitos` (fechamento e bloqueio) = ids das reservas ativas que, em alguma noite do período, ficam com `ocupadas + bloqueadas > unidades` do tipo, mais (bloqueio de quarto) as reservas `hospedada` naquele quarto no período. Nada é cancelado sozinho. Bloqueio e fechamento tiram as noites da disponibilidade (seção 3) e do calendário iCal (seção 11).
+
+## 17. Banco de dados
+
+- `./reserva backup --dados DIR --saida ARQ` → grava em `ARQ` uma cópia consistente de todo o estado (pode rodar com o servidor ligado). Código 0.
+- `./reserva restaurar --dados DIR --entrada ARQ` → com o servidor parado, substitui o estado de `DIR` pelo do backup. Código 0. Ao subir de novo, tudo volta como estava no momento do backup.
+
+## 18. WhatsApp pela Evolution API
+
+Variáveis: `EVOLUTION_URL` (ex.: `http://evolution:8080`), `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCIA`, `WEBHOOK_SEGREDO`. Sem `EVOLUTION_URL` → canal simulado (só caixa de saída, `status: "simulado"`).
+
+**Entrada** — `POST /webhook/evolution/{WEBHOOK_SEGREDO}` (segredo errado → 404). Formato da Evolution v2:
+```json
+{"event": "messages.upsert", "instance": "pousada",
+ "data": {"key": {"remoteJid": "5554999990001@s.whatsapp.net", "fromMe": false, "id": "ABC123"},
+          "pushName": "Maria", "message": {"conversation": "oi"}, "messageType": "conversation"}}
+```
+- Sempre responde 200. Ignora: `event` diferente de `messages.upsert`, `fromMe: true`, `remoteJid` de grupo (`@g.us`), `key.id` já processado (a Evolution reenvia).
+- Texto = `message.conversation` ou `message.extendedTextMessage.text`. Sem texto (áudio, imagem...) → responde `Por enquanto só consigo ler mensagens de texto.`
+- Telefone = dígitos do `remoteJid` antes do `@`, normalizado como na seção 6. Passa pela mesma conversa da seção 7 (o mesmo hóspede, o mesmo estado).
+- Cada resposta da conversa vai por `POST {EVOLUTION_URL}/message/sendText/{EVOLUTION_INSTANCIA}` com header `apikey: {EVOLUTION_API_KEY}` e corpo `{"number": "<dígitos com 55>", "text": "<texto>"}`, na ordem.
+
+**Saída** (lembrete, espera, pós-estadia, humano): com a Evolution configurada, cada mensagem da caixa de saída é enviada do mesmo jeito. Em `/api/saida` cada mensagem tem `status`: `enviado` (2xx), `pendente` (erro HTTP ou de conexão) ou `simulado`. `POST /api/tarefas/rodar` reenvia as `pendente` e devolve `"reenviadas": n` (as que viraram `enviado`). `tarefas/rodar` e `responder` só devolvem a resposta HTTP depois de tentar os envios (o `status` já está definido). Respostas ao webhook e avisos ao Telegram podem ser assíncronos.
+
+## 19. Atendimento interno pelo Telegram
+
+Variáveis: `TELEGRAM_API_URL` (ex.: a URL base da API do Telegram), `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` (grupo da equipe), `TELEGRAM_SEGREDO`. Sem elas, nada vai ao Telegram (o resto funciona igual). Envio: `POST {TELEGRAM_API_URL}/bot{TELEGRAM_TOKEN}/sendMessage` com `{"chat_id", "text"[, "reply_to_message_id"]}`; a resposta do Telegram traz `result.message_id`.
+
+**Atendimento humano** (`/api/atendimento-humano` só com os `aberto`):
+- Ao abrir (pedido de atendente, 2º "não entendi"): manda ao grupo um texto com `#<id>`, telefone, nome (se houver), motivo e a última mensagem do hóspede. Guarda o `message_id`.
+- Enquanto o atendimento do telefone estiver `aberto`, o bot **não responde** sozinho (`respostas: []`); cada mensagem do hóspede vai ao grupo como `#<id> <nome ou telefone>: <texto>`, em resposta (`reply_to_message_id`) à mensagem de abertura.
+- `POST /webhook/telegram` exige header `X-Telegram-Bot-Api-Secret-Token: {TELEGRAM_SEGREDO}` (senão 401). Só aceita updates de `message.chat.id == TELEGRAM_CHAT_ID` (comparados como texto: o update traz número, a variável traz texto); os outros são ignorados (200, sem efeito).
+- Mensagem da equipe que é resposta (`reply_to_message.message_id`) a uma mensagem do atendimento `#id` → o texto vai ao hóspede (caixa de saída `tipo: "humano"`, e pela Evolution se configurada).
+- Comandos: `/responder <id> <texto>` (o mesmo, sem precisar responder em cima); `/encerrar <id>` → status `encerrado`, o bot volta a responder aquele telefone; `/fila` → lista dos abertos (cada um com `#id`); `/chegadas [AAAA-MM-DD]` (padrão: hoje) → texto com `Chegadas DD/MM:` seguido de uma linha `#<id> <nome ou origem> — <nome do tipo> (<quarto ou "sem quarto">)` por chegada do dia (seção 6, `/api/dia`), depois `Saídas DD/MM:` e as saídas; sem nenhuma, a palavra `nenhuma` na seção; `/ocupacao [AAAA-MM]` (padrão: mês de hoje) → primeira linha `Ocupação AAAA-MM: X%` (`indicadores.ocupacao_pct` com 1 casa e vírgula, ex.: `1,2%`), depois uma linha `DD: <ocupadas>/<unidades>` por noite.
+- Pela página da equipe [R]: `POST /api/atendimento-humano/{id}/responder {texto}` e `POST /api/atendimento-humano/{id}/encerrar` fazem o mesmo.
+- **Avisos à equipe:** reserva feita pelo chat/WhatsApp (inclusive pela lista de espera) → `Nova reserva: #<id> DD/MM a DD/MM <nome do tipo> — <nome do hóspede> (direta)`; cancelamento pelo chat → texto começando com `Cancelada:` e contendo `#<id>` e `DD/MM a DD/MM`.
+
+## 20. Docker / VPS
+
+- `Dockerfile` (imagem oficial `python:3-slim` ou similar, **sem `pip install`**) que roda `./reserva serve --host 0.0.0.0 --porta 8080 --dados /dados`, com `HEALTHCHECK` em `/api/saude`.
+- `docker-compose.yml` com o serviço `reserva`: `build: .`, `restart: unless-stopped`, `env_file: .env`, volume para `/dados`, porta publicada só em `127.0.0.1:8080` (na VPS fica atrás de proxy reverso com HTTPS).
+- `.env.exemplo` com todas as variáveis das seções 18 e 19, **todas vazias** (`VARIAVEL=`; vazio = integração desativada), com comentário dizendo o que preencher; nenhum segredo real e nenhuma URL (o `verificar-limites.sh` barra URL externa também nos arquivos de entrega).
+- `README.md` com a seção **Deploy na VPS**: subir o compose, proxy HTTPS, configurar o webhook da Evolution para `/webhook/evolution/<segredo>` (evento `MESSAGES_UPSERT`), registrar o webhook do Telegram com `setWebhook` + `secret_token`, cadastrar a URL `/ical/<segredo>/…` na Booking/Airbnb e importar o `.ics` da OTA pela página da equipe, e o backup diário (`./reserva backup` no cron).
+
+exec
+/bin/bash -lc 'cat tests/conftest.py; cat tests/test_basico.py; cat exemplos/pousada.json; cat README.md; cat VERSION; git status --short' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+"""Testes de aceitação caixa-preta do reserva-hotel (contrato: docs/ESPECIFICACAO.md).
+
+Sobem `./reserva serve --porta 0 --dados <tmp>` com relógio fixo e falam só HTTP/CLI,
+então valem para qualquer linguagem de implementação.
+"""
+import json
+import os
+import pathlib
+import shutil
+import signal
+import subprocess
+import threading
+import unicodedata
+import urllib.error
+import urllib.request
+
+import pytest
+
+RAIZ = pathlib.Path(__file__).resolve().parent.parent
+FIXTURE = pathlib.Path(__file__).resolve().parent / "fixtures" / "pousada.json"
+TOKEN = "segredo-teste"
+AGORA = "2026-10-06T09:00"  # terça-feira 06/10/2026 (conferido: datetime.date(2026,10,6).strftime('%a') == 'Tue')
+
+
+def norm(s):
+    """Minúsculas e sem acento, como o bot normaliza o texto para decidir."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower()) if unicodedata.category(c) != "Mn")
+
+
+class Cliente:
+    def __init__(self, base):
+        self.base = base
+
+    def req(self, metodo, rota, corpo=None, token=TOKEN):
+        dados = None if corpo is None else json.dumps(corpo).encode()
+        r = urllib.request.Request(self.base + rota, data=dados, method=metodo)
+        if dados is not None:
+            r.add_header("Content-Type", "application/json")
+        if token:
+            r.add_header("X-Token", token)
+        try:
+            with urllib.request.urlopen(r, timeout=10) as resp:
+                texto = resp.read().decode()
+                return resp.status, (json.loads(texto) if texto and "json" in resp.headers.get("Content-Type", "") else texto)
+        except urllib.error.HTTPError as e:
+            texto = e.read().decode()
+            try:
+                return e.code, json.loads(texto)
+            except ValueError:
+                return e.code, texto
+
+    def get(self, rota, **kw):
+        return self.req("GET", rota, **kw)
+
+    def post(self, rota, corpo=None, **kw):
+        return self.req("POST", rota, {} if corpo is None else corpo, **kw)
+
+    def put(self, rota, corpo=None, **kw):
+        return self.req("PUT", rota, {} if corpo is None else corpo, **kw)
+
+    def delete(self, rota, **kw):
+        return self.req("DELETE", rota, **kw)
+
+    # atalhos (padrões vêm do fixture; no verificar-independente.py passar tudo explícito)
+    def hospede(self, nome="Maria Silva", telefone="(54) 99999-0001", marketing=False):
+        st, r = self.post("/api/hospedes", {"nome": nome, "telefone": telefone, "consentimento_marketing": marketing})
+        assert st in (200, 201), (st, r)
+        return r["id"]
+
+    def reserva(self, hospede_id, checkin, checkout, tipo="standard", adultos=2, criancas=0, origem=None, total=None):
+        corpo = {"hospede_id": hospede_id, "tipo": tipo, "checkin": checkin, "checkout": checkout,
+                 "adultos": adultos, "criancas": criancas}
+        if origem:
+            corpo["origem"] = origem
+        if total is not None:
+            corpo["total"] = total
+        return self.post("/api/reservas", corpo)
+
+    def disponibilidade(self, checkin, checkout, adultos=2, criancas=0, origem=None):
+        rota = f"/api/disponibilidade?checkin={checkin}&checkout={checkout}&adultos={adultos}&criancas={criancas}"
+        if origem:
+            rota += f"&origem={origem}"
+        return self.get(rota, token=None)
+
+    def opcoes(self, checkin, checkout, adultos=2, criancas=0, origem=None):
+        st, r = self.disponibilidade(checkin, checkout, adultos, criancas, origem)
+        assert st == 200, (st, r)
+        return {o["tipo"]: o for o in r["opcoes"]}
+
+    def msg(self, telefone, texto):
+        st, r = self.post("/api/mensagens", {"telefone": telefone, "texto": texto}, token=None)
+        assert st == 200, (st, r)
+        return "\n".join(r["respostas"])
+
+    def saida(self, tipo=None):
+        st, r = self.get("/api/saida")
+        assert st == 200, (st, r)
+        return [m for m in r["mensagens"] if tipo is None or m["tipo"] == tipo]
+
+    def rodar(self, agora=None):
+        st, r = self.post("/api/tarefas/rodar", {"agora": agora} if agora else {})
+        assert st == 200, (st, r)
+        return r["enviadas"]
+
+
+SERVIDORES = []
+
+
+@pytest.fixture(autouse=True)
+def _parar_servidores():
+    """Para todo Servidor criado no teste, mesmo que uma asserção falhe antes do parar() explícito
+    (evita `reserva serve` órfão quando o teste sobe o servidor fora de try/finally)."""
+    yield
+    while SERVIDORES:
+        SERVIDORES.pop().parar()
+
+
+class Servidor:
+    def __init__(self, dados, agora=AGORA, env=None):
+        SERVIDORES.append(self)  # o teardown autouse para todos, mesmo se o teste falhar
+        self.dados = dados
+        self.agora = agora
+        self.env = env or {}
+        self.proc = None
+
+    def subir(self):
+        exe = RAIZ / "reserva"
+        if not exe.exists():
+            pytest.fail("./reserva não existe (ponto de entrada da seção 1 da especificação)")
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("EVOLUTION_", "TELEGRAM_", "WEBHOOK_"))}
+        env.update(RESERVA_AGORA=self.agora, **self.env)
+        self.proc = subprocess.Popen(
+            [str(exe), "serve", "--porta", "0", "--dados", str(self.dados)],
+            cwd=RAIZ, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+        )
+        linha = {}
+
+        def ler():
+            linha["v"] = self.proc.stdout.readline()
+
+        t = threading.Thread(target=ler, daemon=True)
+        t.start()
+        t.join(15)
+        primeira = (linha.get("v") or "").strip()
+        if not primeira.startswith("PORTA="):
+            self.parar()
+            pytest.fail(f"servidor não imprimiu PORTA=<n> na 1ª linha (veio {primeira!r})")
+        # drena o resto do stdout para o processo não travar com o pipe cheio
+        threading.Thread(target=lambda: [None for _ in self.proc.stdout], daemon=True).start()
+        return Cliente(f"http://127.0.0.1:{int(primeira.split('=', 1)[1])}")
+
+    def parar(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.send_signal(signal.SIGTERM)
+            try:
+                self.proc.wait(5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait(5)
+
+
+@pytest.fixture
+def dados(tmp_path):
+    d = tmp_path / "dados"
+    d.mkdir()
+    shutil.copy(FIXTURE, d / "pousada.json")
+    return d
+
+
+@pytest.fixture
+def servidor(dados):
+    s = Servidor(dados)
+    yield s
+    s.parar()
+
+
+@pytest.fixture
+def api(servidor):
+    return servidor.subir()
+
+
+def editar_config(dados, **campos):
+    cfg = json.loads((dados / "pousada.json").read_text())
+    cfg.update(campos)
+    (dados / "pousada.json").write_text(json.dumps(cfg, ensure_ascii=False))
+
+
+class Externo:
+    """Servidor falso local que faz o papel da Evolution API e da API do Telegram. Grava cada pedido."""
+
+    def __init__(self):
+        import http.server
+        self.pedidos = []
+        self.falhas = 0          # quantos próximos pedidos devolvem 500
+        self.prox_msg = 1000
+        self.trava = threading.Lock()
+        externo = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                corpo = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                try:
+                    dados = json.loads(corpo or b"{}")
+                except ValueError:
+                    dados = {}
+                pedido = {"rota": self.path, "headers": {k.lower(): v for k, v in self.headers.items()}, "json": dados}
+                with externo.trava:
+                    if externo.falhas > 0:
+                        externo.falhas -= 1
+                        pedido["status"] = 500
+                        externo.pedidos.append(pedido)
+                        self.send_response(500)
+                        self.send_header("Content-Length", "0")
+                        self.end_headers()
+                        return
+                    externo.prox_msg += 1
+                    pedido["status"], pedido["message_id"] = 200, externo.prox_msg
+                    externo.pedidos.append(pedido)
+                resp = {"ok": True, "result": {"message_id": pedido["message_id"]}, "key": {"id": f"X{pedido['message_id']}"}}
+                b = json.dumps(resp).encode()
+                self.send_response(201 if "/message/" in self.path else 200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
+            def log_message(self, *a):
+                pass
+
+        self.srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+
+    def whats(self, ok=True):
+        return [p for p in self.pedidos if p["rota"] == f"/message/sendText/{INSTANCIA}" and (not ok or p["status"] == 200)]
+
+    def telegram(self):
+        return [p for p in self.pedidos if p["rota"] == "/botTOKEN123/sendMessage" and p["status"] == 200]
+
+    def fechar(self):
+        self.srv.shutdown()
+        self.srv.server_close()
+
+
+INSTANCIA = "pousada"
+SEGREDO_WH = "wh-segredo"
+CHAT_EQUIPE = -100777
+SEGREDO_TG = "tg-segredo"
+
+
+def env_integracoes(externo):
+    return {
+        "EVOLUTION_URL": externo.url, "EVOLUTION_API_KEY": "chave-evo", "EVOLUTION_INSTANCIA": INSTANCIA,
+        "WEBHOOK_SEGREDO": SEGREDO_WH,
+        "TELEGRAM_API_URL": externo.url, "TELEGRAM_TOKEN": "TOKEN123", "TELEGRAM_CHAT_ID": str(CHAT_EQUIPE),
+        "TELEGRAM_SEGREDO": SEGREDO_TG,
+    }
+
+
+@pytest.fixture
+def externo():
+    e = Externo()
+    yield e
+    e.fechar()
+
+
+@pytest.fixture
+def api_int(dados, externo):
+    """Servidor com Evolution e Telegram apontando para o falso local."""
+    s = Servidor(dados, env=env_integracoes(externo))
+    yield s.subir()
+    s.parar()
+
+
+def esperar(cond, segundos=5):
+    import time
+    fim = time.time() + segundos
+    while time.time() < fim:
+        if cond():
+            return True
+        time.sleep(0.05)
+    return cond()
+"""Seções 1, 5, 6 (saúde/tipos), 15 e persistência. Agora = ter 06/10/2026 09:00."""
+from conftest import RAIZ, Servidor
+
+
+def test_saude_traz_versao_do_arquivo(api):
+    st, r = api.get("/api/saude", token=None)
+    assert st == 200
+    assert r["ok"] is True
+    assert r["versao"] == (RAIZ / "VERSION").read_text().strip()
+
+
+def test_tipos_na_ordem_da_config_com_unidades_efetivas(api):
+    st, r = api.get("/api/tipos", token=None)
+    assert st == 200
+    assert [t["id"] for t in r["tipos"]] == ["standard", "suite", "chale"]
+    # standard tem 3 quartos cadastrados (101, 102, 103); chalé não tem quarto → vale "unidades": 1
+    assert [t["unidades"] for t in r["tipos"]] == [3, 2, 1]
+    assert r["tipos"][0]["tarifa_base"] == 300.0 and r["tipos"][0]["pessoa_extra"] == 80.0
+
+
+def test_rotas_da_equipe_exigem_token(api):
+    for metodo, rota in [("GET", "/api/saida"), ("GET", "/api/reservas?de=2026-10-07&ate=2026-10-07"),
+                         ("POST", "/api/hospedes"), ("POST", "/api/reservas"), ("GET", "/api/atendimento-humano"),
+                         ("GET", "/api/raiox?mes=2026-10"), ("GET", "/api/ocupacao?mes=2026-10"),
+                         ("GET", "/api/dia?data=2026-10-07"), ("POST", "/api/ical/importar")]:
+        corpo = {} if metodo == "POST" else None
+        assert api.req(metodo, rota, corpo, token=None)[0] == 401, rota
+        assert api.req(metodo, rota, corpo, token="errado")[0] == 401, rota
+    # públicas
+    assert api.disponibilidade("2026-10-10", "2026-10-12")[0] == 200
+    assert api.get("/api/tipos", token=None)[0] == 200
+    assert api.post("/api/mensagens", {"telefone": "54911112222", "texto": "oi"}, token=None)[0] == 200
+
+
+def test_paginas(api):
+    st, html = api.get("/", token=None)
+    assert st == 200 and 'id="chat"' in html
+    st, html = api.get("/equipe", token=None)
+    assert st == 200
+    for el in ('id="mapa"', 'id="chegadas"', 'id="reservas"', 'id="fila-humano"', 'id="cadastros"'):
+        assert el in html, el
+
+
+def test_estado_persiste_ao_reiniciar(dados):
+    s = Servidor(dados)
+    api = s.subir()
+    hid = api.hospede()
+    st, r = api.reserva(hid, "2026-10-10", "2026-10-12", tipo="chale")
+    assert st == 201, r
+    s.parar()
+    s2 = Servidor(dados)
+    try:
+        api2 = s2.subir()
+        st, lista = api2.get("/api/reservas?de=2026-10-10&ate=2026-10-11")
+        assert st == 200
+        assert [x["id"] for x in lista["reservas"]] == [r["id"]]
+        # chalé tem 1 unidade: continua lotado depois do reinício
+        assert api2.reserva(hid, "2026-10-10", "2026-10-12", tipo="chale")[0] == 409
+    finally:
+        s2.parar()
+
+
+def test_cria_pousada_json_do_exemplo_se_faltar(tmp_path):
+    d = tmp_path / "vazio"
+    d.mkdir()
+    s = Servidor(d)
+    try:
+        api = s.subir()
+        assert api.get("/api/saude", token=None)[0] == 200
+        assert (d / "pousada.json").exists()
+    finally:
+        s.parar()
+{
+  "nome": "Pousada Vista da Serra",
+  "token": "TROQUE-ESTE-TOKEN",
+  "ical_segredo": "TROQUE-ESTE-SEGREDO",
+  "checkin_hora": "14:00",
+  "checkout_hora": "11:00",
+  "janela_dias": 365,
+  "cancelamento_gratis_dias": 7,
+  "sinal_pct": 30,
+  "sinal_instrucoes": "Pix para a chave pousada@exemplo.com em até 24 horas.",
+  "desconto_direto_pct": 10,
+  "beneficio_direto": "café da manhã incluso e late check-out sujeito a disponibilidade",
+  "pacote_baixa": {"noites": 3, "pagas": 2},
+  "lembrete_dias": 3,
+  "pos_estadia_dias": 2,
+  "tipos": [
+    {"id": "standard", "nome": "Standard", "unidades": 3, "adultos_max": 2, "criancas_max": 1, "ocupacao_base": 2, "tarifa_base": 300.00, "pessoa_extra": 80.00},
+    {"id": "suite", "nome": "Suíte com vista", "unidades": 2, "adultos_max": 3, "criancas_max": 2, "ocupacao_base": 2, "tarifa_base": 450.00, "pessoa_extra": 100.00},
+    {"id": "chale", "nome": "Chalé", "unidades": 1, "adultos_max": 4, "criancas_max": 2, "ocupacao_base": 2, "tarifa_base": 289.85, "pessoa_extra": 60.00}
+  ],
+  "quartos": [
+    {"id": "101", "tipo": "standard"},
+    {"id": "102", "tipo": "standard"},
+    {"id": "103", "tipo": "standard"},
+    {"id": "201", "tipo": "suite"},
+    {"id": "202", "tipo": "suite"}
+  ],
+  "temporadas": [
+    {"id": "feriado-nov", "nome": "Proclamação da República", "tipo": "feriado", "de": "2026-11-14", "ate": "2026-11-15", "precos": {"standard": 380.00, "suite": 560.00}},
+    {"id": "baixa-nov", "nome": "Baixa de novembro", "tipo": "baixa", "de": "2026-11-01", "ate": "2026-11-30", "precos": {"standard": 240.00, "suite": 360.00}},
+    {"id": "natal", "nome": "Natal Luz", "tipo": "alta", "de": "2026-12-20", "ate": "2027-01-05", "precos": {"standard": 480.00, "suite": 700.00}}
+  ],
+  "estadias_minimas": [
+    {"de": "2026-11-14", "ate": "2026-11-15", "noites": 2},
+    {"de": "2026-12-20", "ate": "2027-01-05", "noites": 3}
+  ],
+  "fechamentos": [
+    {"de": "2026-10-26", "ate": "2026-10-28", "motivo": "reforma"}
+  ],
+  "faq": [
+    {"id": "cafe", "perguntas": ["o café da manhã está incluso", "tem café da manhã"], "resposta": "O café da manhã é servido das 7h às 10h e está incluso na diária."},
+    {"id": "pet", "perguntas": ["aceitam pet", "posso levar cachorro"], "resposta": "Aceitamos pets de até 10 kg mediante taxa de R$ 50 por estadia."},
+    {"id": "estacionamento", "perguntas": ["tem estacionamento"], "resposta": "Temos estacionamento gratuito para hóspedes."},
+    {"id": "horarios", "perguntas": ["qual o horário do check-in", "que horas é o check-out"], "resposta": "Check-in a partir das 14h e check-out até as 11h."}
+  ]
+}
+# reserva-hotel
+
+**🇧🇷 [Português](README.md) · 🇺🇸 [English](README.en.md) · 🇪🇸 [Español](README.es.md)**
+
+[![Reserva Hotel](guia/assets/banner.jpg)](https://inematds.github.io/reserva-hotel/guia/)
+
+## 📖 Guia de uso
+
+Guia completo (landing + passo a passo): **https://inematds.github.io/reserva-hotel/guia/**
+
+Sistema de reservas para **uma pousada ou hotel pequeno**, em Python 3 com biblioteca padrão e SQLite: inventário por noite (tipos de quarto e quartos numerados), tarifas por temporada com pacote de baixa e desconto de reserva direta, cotação/reserva/cancelamento pela conversa (chat web e WhatsApp pela Evolution API), lembrete com pré-check-in, check-in/check-out/no-show pela equipe, lista de espera, mensagem pós-estadia com consentimento, calendários iCal para bloquear datas na Booking/Airbnb e importar o calendário delas por arquivo, origem de cada reserva, equipe pelo Telegram, cadastros, backup, LGPD e exportação mensal para o Painel de Recuperação do **Raio-X de Margem** (pacote `hotel`).
+
+**Estado (05/10/2026): planejado e validado, não implementado.** O que existe é o contrato (`docs/ESPECIFICACAO.md`), 98 testes de aceitação caixa-preta (`tests/`), a validação adversarial do plano (`docs/VALIDACAO.md`), as decisões com proposta padrão (`docs/DECISOES-ABERTAS.md`), o mapa dos vazamentos do Raio-X (`docs/MAPA-RAIO-X.md`) e a pasta de execução longa (`longrun/2026-10-05-reservas-v1/`) pronta para qualquer pessoa rodar a implementação no próprio ambiente com um agente.
+
+## O que o sistema faz (v1)
+
+- **Inventário por noite:** check-in inclusivo, check-out exclusivo; unidades por tipo (ou nº de quartos cadastrados); estadia mínima por período; fechamentos; bloqueio de quarto; **sem overbooking** (pedidos concorrentes para a última unidade: um 201, os outros 409).
+- **Tarifas:** tarifa base por tipo, temporadas (alta/baixa/feriado) com preço por noite, pessoa extra, pacote de baixa (ex.: 3 noites pagam 2), desconto de canal próprio (direta/balcão), sinal como política escrita; centavos com arredondamento meio para cima.
+- **Conversa** (chat web e WhatsApp): consultar disponibilidade e preço, reservar, ver e cancelar a própria reserva conforme a política, FAQ, atendente humano pelo Telegram, "PARAR".
+- **Ciclo da estadia:** lembrete com pré-check-in, check-in/check-out/no-show pela equipe, pós-estadia convidando a reservar direto (só com consentimento), lista de espera.
+- **OTAs:** exportação iCal por tipo e por quarto; importação do `.ics` baixado da OTA (vira reserva de origem `booking`/`airbnb`); nenhuma busca de URL externa.
+- **Equipe:** página `/equipe` com token; Telegram com `/chegadas`, `/ocupacao`, `/fila`, `/responder`, `/encerrar` e avisos de reserva nova/cancelada.
+- **Raio-X:** `GET /api/raiox?mes=` e CLI `raiox --acompanhamento` com os ids do pacote `hotel`; backup/restauração; Docker.
+
+O que fica de fora do v1 está na seção 14 da especificação.
+
+## Como rodar no seu ambiente
+
+### Pré-requisitos
+
+- Linux/macOS com `git`, `python3` ≥ 3.10 e `pytest` (`pip install pytest`; é ferramenta de desenvolvimento, a aplicação não depende dela).
+- Um agente pela **assinatura**: Codex CLI (`codex`) ou Claude Code (`claude`). Nenhuma API é chamada.
+- Para a verificação independente final: `docker`.
+- Método e ferramentas de execução longa: clone de `~/projetos/execucao-longa` (`tools/loop-longrun.sh`, `docs/PLANO-EXECUCAO-LONGA.md`). Se não tiver, a rota `/goal` interativa (abaixo) não precisa dele.
+
+### 1. Responder as decisões e congelar o contrato
+
+```sh
+cd reserva-hotel
+# leia docs/DECISOES-ABERTAS.md; "ok em tudo" = nada a mudar
+python3 -m pytest -q --collect-only | tail -n 1     # 98 tests collected
+bash longrun/2026-10-05-reservas-v1/congelar.sh     # grava hash-congelado.txt e faz 1 commit
+```
+
+Se mudar algo marcado ⚠ nas decisões, edite `docs/ESPECIFICACAO.md` e os testes **antes** de congelar. Depois de congelado, contrato e testes são protegidos: o agente não os altera; se um teste contradizer a spec, ele registra em `failures.md` e para (portão humano).
+
+### 2a. Loop headless (Codex `gpt-6-astra`)
+
+```sh
+~/projetos/execucao-longa/tools/loop-longrun.sh longrun/2026-10-05-reservas-v1
+```
+
+Configuração em `longrun/2026-10-05-reservas-v1/loop.env` (teste rápido/final, arquivos protegidos, 20 ciclos × 30 min, 8 GB, parada após 3 ciclos sem avanço, `CODEX_ARGS` liberando socket local no sandbox). O loop faz `flock`, `timeout`, `MemoryMax`, reverte ciclo que mexer em arquivo protegido, commita checkpoint por ciclo e para sozinho quando o teste final passa.
+
+### 2b. `/goal` no Codex TUI
+
+```sh
+codex -c sandbox_workspace_write.network_access=true
+```
+
+Cole o conteúdo de `longrun/2026-10-05-reservas-v1/prompt-goal-codex.md`. Acompanhe com `/goals`; pause/retome com `/goal pause|resume`.
+
+### 2c. `/goal` no Claude Code
+
+Abra uma sessão nova na pasta do projeto e siga `longrun/2026-10-05-reservas-v1/prompt-goal-claude.md` (a condição do `/goal` + o mesmo bloco do Codex como primeira mensagem).
+
+### 3. Acompanhar
+
+```sh
+tail -n 20 longrun/2026-10-05-reservas-v1/loop.log        # headless
+cat longrun/2026-10-05-reservas-v1/state.md               # Funciona / Falta / Como retomar
+tail -n 5 longrun/2026-10-05-reservas-v1/progress.md
+python3 -m pytest -q tests/ | tail -n 3
+```
+
+Pronto = `python3 -m pytest -q tests/` → **98 passed** e `bash longrun/2026-10-05-reservas-v1/verificar-limites.sh` → **LIMITES OK** (hash do contrato intacto, nº de testes igual, só arquivos do escopo, sem dependência externa, sem URL externa, sem chave, sem `0.0.0.0` no código).
+
+### 4. Verificação independente (nível 4, humano)
+
+```sh
+python3 longrun/2026-10-05-reservas-v1/verificar-independente.py   # INDEPENDENTE OK
+```
+
+Procura valores do fixture copiados no código, sobe uma pousada nunca vista (outros tipos, preços, temporada, políticas, relógio) e confere regras que só passam se a lógica for geral; depois faz `docker build` e testa o healthcheck do container. Abra `/` e `/equipe` no navegador.
+
+## Executar (depois de implementado)
+
+```sh
+mkdir -p dados && cp exemplos/pousada.json dados/pousada.json   # troque TROQUE-ESTE-TOKEN e TROQUE-ESTE-SEGREDO
+./reserva serve --porta 8080 --dados dados
+```
+
+O chat do hóspede fica em `/`, a página da equipe em `/equipe` (header `X-Token`). `RESERVA_AGORA` fixa o relógio só para testes. A seção de deploy (compose, proxy HTTPS, webhooks da Evolution e do Telegram, calendários iCal nas OTAs, backup diário) é escrita pelo implementador conforme a seção 20 da especificação.
+
+## Arquivos
+
+- `docs/ESPECIFICACAO.md` — contrato (20 seções, tabela de rotas, regras com fronteiras, fora do v1).
+- `docs/DECISOES-ABERTAS.md` — decisões com proposta padrão; perguntas para o dono.
+- `docs/MAPA-RAIO-X.md` — cada vazamento do pacote `hotel` → peça do v1 ou motivo de ficar fora.
+- `tests/` — 98 testes caixa-preta (`conftest.py` sobe o CLI, relógio fixo, servidor falso de Evolution/Telegram). Fixture em `tests/fixtures/pousada.json`; cópia em `exemplos/`.
+- `longrun/2026-10-05-reservas-v1/` — goal (nível 3+), plan, state, loop.env, prompts, `congelar.sh`, `verificar-limites.sh`, `verificar-independente.py`.
+- `FALHAS.md` — uma linha por falha (data, o que quebrou, menor correção, prompt | infra).
+0.1.0
+?? longrun/2026-10-05-reservas-v1/ciclo-1.log
+?? longrun/2026-10-05-reservas-v1/loop.log
+
+exec
+/bin/bash -lc "sed -n '135,285p' docs/ESPECIFICACAO.md" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+
+## 7. Conversa (`POST /api/mensagens`)
+
+O texto é normalizado (minúsculas, sem acento) para decidir; datas e números são lidos do texto original. Ordem de decisão:
+
+1. **Parar** — texto igual a `parar`, `sair` ou `pare`: o telefone fica `nao_contatar` (no hóspede, se existir; senão guardado por telefone e aplicado ao hóspede quando for criado); resposta contém `não vai mais receber`. Nenhuma mensagem de saída (lembrete, espera, pós-estadia) vai mais para esse telefone.
+2. **Humano** — contém `atendente`, `humano` ou `falar com alguem`: fila humana (`prioridade: "normal"`); resposta contém `atendente`.
+3. **Fluxo em andamento** (abaixo) consome a mensagem. Dentro de qualquer fluxo, o texto `voltar` sai do fluxo sem efeito (resposta contém `ok`); a mensagem seguinte é tratada fora de fluxo.
+4. **Resposta a pendência** — se a última mensagem de saída para o telefone foi `lembrete` (sem resposta ainda): `1`/`sim`/`confirmo` → `chegada_confirmada: true`, resposta contém `confirmad` e `documento` e abre o fluxo **pré-check-in**; `2`/`cancelar`/`nao` → cancelamento da reserva do lembrete pela política (seção 10): grátis → cancela, resposta contém `cancelad`; fora do prazo → resposta contém `sinal` e `sim` e abre o fluxo **confirmar cancelamento**. Se foi `espera` (sem resposta): `1`/`sim` → cria a reserva (origem `direta`) se ainda disponível (resposta contém `reservad`), senão resposta contém `indispon` e a espera volta a `pendente`.
+5. **Cancelar** — contém `cancelar`: nenhuma reserva ativa (`confirmada`/`hospedada` com `checkout ≥ hoje`) no telefone → contém `nenhuma reserva`; senão lista `N) #<id> DD/MM a DD/MM <nome do tipo>` e pede o número (fluxo **cancelar**).
+6. **Minha reserva** — contém `minha reserva` ou `minhas reservas`: lista as reservas ativas do telefone (mesma definição da regra 5), uma linha `#<id> DD/MM a DD/MM <nome do tipo> — R$ <total> (sinal pago|sinal pendente)`; nenhuma → resposta contém `nenhuma reserva`.
+7. **Reservar / cotar** — contém `reservar`, `reserva`, `disponibilidade`, `vaga`, `quanto`, `diaria` ou `hospedar`: fluxo **cotar**; resposta contém `datas`.
+8. **FAQ** — palavras significativas (≥ 3 letras, fora de artigos/preposições/pronomes comuns) de alguma pergunta do FAQ: se ≥ 60 % delas aparecem no texto, responde **exatamente** a `resposta` daquele item (só ela, uma mensagem). Mais de um item casa → o de maior %; empate → o primeiro do FAQ.
+9. **Não entendi** — resposta contém `não entendi` e oferece `atendente`. Na **segunda** seguida sem entender, entra na fila humana automaticamente.
+
+**Fluxo cotar** (estado por telefone, persistido):
+- **Datas:** aceita `DD/MM[/AAAA] a DD/MM[/AAAA]` (separador `a`, `ate` ou `-`); sem ano → ano de hoje e, se a data ficar antes de hoje, o ano seguinte. Não reconhecida → repete a pergunta (contém `datas`). Datas que violam a seção 3 (`datas`, `fechado`, `estadia_minima`) → responde o motivo (`estadia_minima` → contém `mínimo` e o nº de noites) e repete a pergunta.
+- **Hóspedes:** resposta contém `hospedes`; aceita `N adulto(s)` e `M crianca(s)` (ordem livre; só um número = `N` adultos, 0 crianças). Não reconhecido → repete.
+- **Opções:** para cada tipo da disponibilidade (origem `direta`): `N) <nome> — <noites> noites — R$ <total> (sinal R$ <sinal>)` (`1 noite` no singular), depois o `beneficio_direto` e o pedido para responder o número. Nenhum tipo disponível → resposta contém `sem disponibilidade` e `lista de espera` e lista os tipos ativos com capacidade `N) <nome>`; número → entra na lista de espera (pedindo o nome antes, se o telefone é desconhecido); resposta contém `lista de espera`.
+- **Número** escolhido → telefone sem hóspede → pergunta o nome (contém `nome`); a próxima mensagem vira o nome e o hóspede é criado (`consentimento_marketing: false`). Cria a reserva com origem `direta`. Resposta contém `reservad`, `#<id>`, `DD/MM a DD/MM`, `R$ <total>`, `sinal` e o `sinal_instrucoes`. Se a unidade acabou nesse meio-tempo → contém `indispon` e sai do fluxo. Número inválido → repete as opções.
+
+**Fluxo pré-check-in:** a próxima mensagem do telefone (que não seja comando das regras 1–2) é guardada em `pre_checkin` da reserva; resposta contém `recebid`.
+
+**Fluxo cancelar:** número → reserva; grátis (seção 10) → cancela, resposta contém `cancelad` e `sem custo`; fora do prazo → contém `sinal` e `sim` (fluxo **confirmar cancelamento**): `sim` → cancela, contém `cancelad`; qualquer outra coisa → contém `mantida`, sai do fluxo.
+
+O bot **nunca** inventa preço fora da tabela (seção 4), nem promete quarto específico: fora das regras acima cai na 9.
+
+## 8. Lista de espera
+
+Ao liberar noites de um tipo (cancelamento pela API, pela conversa ou por reimportação iCal; no-show), percorrem-se os pedidos `pendente` daquele tipo em ordem de criação: o **primeiro** cuja estadia inteira está disponível (seção 3) e cujo hóspede não está `nao_contatar` recebe mensagem `tipo: "espera"` com `reserva_id: null`, texto contendo `DD/MM a DD/MM`, o nome do tipo, `R$ <total>` (origem `direta`) e `1`; o pedido fica `ofertado`. Uma oferta por liberação. Resposta `1` → seção 7, regra 4; reserva criada → pedido `reservado`.
+
+## 9. Ciclo da estadia (`POST /api/tarefas/rodar`)
+
+- **Lembrete + pré-check-in:** toda reserva `confirmada` com hóspede, `checkin − lembrete_dias ≤ hoje < checkin` (hoje = data de `agora`) e ainda sem lembrete → mensagem `tipo: "lembrete"` com `reserva_id`. Texto contém `DD/MM` do check-in, o nome do tipo, `checkin_hora`, `1` (confirmar chegada e enviar documentos) e `2` (cancelar); se `sinal_pago` é falso e a origem é canal próprio, contém a palavra `sinal`; senão **não** contém. Uma vez por reserva. Reservas importadas (sem hóspede) não recebem.
+- **Pós-estadia:** toda reserva `finalizada` com hóspede, `checkout + pos_estadia_dias ≤ hoje` (`checkout` = o gravado na reserva, não a data real de um check-out antecipado), ainda sem envio, hóspede com `consentimento_marketing: true` → mensagem `tipo: "pos_estadia"`; texto contém `reservar direto` e o `beneficio_direto`. Uma vez por reserva.
+- Hóspede `nao_contatar` nunca recebe: a mensagem **não é criada** (não aparece em `/api/saida` nem conta em `enviadas`). Lembrete **não** depende de `consentimento_marketing` (execução do contrato, LGPD art. 7º, V); pós-estadia **depende** (marketing, art. 7º, I).
+- **Sinal:** política escrita só. A equipe marca `sinal_pago` à mão (`POST /api/reservas/{id}/sinal`); nada expira sozinho.
+- **Check-in / check-out / no-show:** só pela equipe (seção 6). Check-in atribui o quarto.
+
+## 10. Cancelamento
+
+`gratis = (hoje + cancelamento_gratis_dias ≤ checkin)`, com `hoje` = data do relógio **no momento do cancelamento**. Exemplo (fixture, 7 dias, hoje 06/10): check-in 13/10 → grátis; 12/10 → fora do prazo. Fora do prazo o sinal fica retido (política escrita; nenhuma cobrança automática). A resposta do cancelamento sempre traz `gratis`. Cancelamento por reimportação iCal (seção 11) tem `gratis: true`.
+
+## 11. iCal (OTAs)
+
+**Exportação** — `GET /ical/{ical_segredo}/tipo/{tipo}.ics` e `GET /ical/{ical_segredo}/quarto/{quarto}.ics` (segredo errado ou id inexistente → 404). `Content-Type: text/calendar`, linhas terminadas em CRLF. Conteúdo: `BEGIN:VCALENDAR`, `VERSION:2.0`, `PRODID:-//reserva-hotel//PT`, um `VEVENT` por **sequência contígua** de noites indisponíveis, **em ordem cronológica**, cada um com as propriedades **nesta ordem, uma por linha**: `BEGIN:VEVENT`, `UID:<tipo-ou-quarto>-<AAAAMMDD da primeira noite>@reserva-hotel`, `DTSTAMP:<AAAAMMDDTHHMMSSZ do relógio do processo>`, `DTSTART;VALUE=DATE:<AAAAMMDD da primeira noite>`, `DTEND;VALUE=DATE:<AAAAMMDD do dia seguinte à última noite>` (exclusivo, RFC 5545; vem **imediatamente** depois de `DTSTART`), `SUMMARY:Indisponível`, `END:VEVENT`; por fim `END:VCALENDAR`. Noite indisponível: no calendário do **tipo**, `Livres(T, N) = 0`; no calendário do **quarto**, noites em que o tipo está lotado **ou** o quarto está bloqueado **ou** há reserva ativa (`confirmada`/`hospedada`) com esse `quarto` atribuído (pelo check-in ou pela importação por quarto). Janela: de hoje até `hoje + janela_dias`.
+
+**Importação** — `POST /api/ical/importar` [R] `{"origem": "booking"|"airbnb"|"outra", "tipo", "quarto"?, "ics": "<texto do arquivo>"}` → 200 `{"importadas": n, "canceladas": n, "conflitos": [ids]}`.
+- Validação: `origem` fora de `booking`/`airbnb`/`outra` → 422; `tipo` inexistente → 404; `quarto` informado precisa ser do `tipo` (senão 422).
+- Leitura: linhas separadas por CRLF ou LF; linha que começa com espaço ou tabulação continua a anterior (dobra); cada `VEVENT` precisa de `UID` e `DTSTART` (`VALUE=DATE` `AAAAMMDD`; se vier data-hora, usa-se só a data); `DTEND` ausente → 1 noite. Sem `BEGIN:VCALENDAR` ou evento sem `UID`/`DTSTART` → 422. Eventos cujo `DTEND ≤ hoje` são ignorados.
+- Cada evento vira uma **reserva** `status: "confirmada"`, `origem` dada, `hospede_id: null`, `adultos`/`criancas` `null`, `total: null`, `sinal: 0`, `quarto` (se informado), `ical_uid = UID`, `checkin = DTSTART`, `checkout = DTEND`. Chave de idempotência `(origem, tipo, quarto, ical_uid)`: se já existe, atualiza as datas (se `confirmada`) e não conta em `importadas`.
+- Reimportação **substitui** o conjunto: reservas `confirmada` com a mesma `(origem, tipo, quarto)` cujo `ical_uid` não está no arquivo viram `cancelada` (`gratis: true`, contam em `canceladas`, disparam a seção 8). `hospedada`/`finalizada` ficam.
+- A importação **não** checa capacidade (a OTA já vendeu): `conflitos` = ids das reservas ativas da pousada (não importadas) do mesmo tipo que, em alguma noite, ficam com `ocupadas + bloqueadas > unidades`; `Livres` nunca fica negativo. Não manda aviso ao Telegram nem lembrete.
+- Nada busca URL externa: o arquivo chega pelo corpo da requisição (baixado pela equipe). Sincronização por URL está fora do v1.
+
+## 12. Exportação para o Raio-X (Painel de Recuperação)
+
+`GET /api/raiox?mes=AAAA-MM` → `{"pacote": "hotel", "mes": "AAAA-MM", "valores": {...}, "indicadores": {...}}`. Em `valores` só **ids do pacote `hotel`** (`raio-x-margem/setores/hotel.js`); em `indicadores`, números úteis ao dono que não são entradas do pacote. Percentuais com 1 casa, reais com 2, inteiros inteiros; arredondamento meio para cima.
+
+Definições (reservas "do mês" = `checkin` no mês e status ∈ `confirmada, hospedada, finalizada`; "noites no mês" = noites da estadia — `checkin` … `checkout − 1` **gravados na reserva**, não a data real de um check-out antecipado — com data dentro do mês):
+
+- `uhs` = Σ unidades efetivas dos tipos ativos.
+- `reservas_mes` = nº de reservas do mês (importadas incluídas).
+- `valor_reserva` = média de `total` das reservas do mês com `total` não nulo (0 se nenhuma).
+- `faturamento` = Σ, sobre **todas** as reservas com status ∈ `confirmada, hospedada, finalizada` (qualquer mês de check-in), de `total × noites no mês ÷ noites` (total nulo = 0), arredondado no fim.
+- `receita_ota` = o mesmo só para origem `booking`, `airbnb`, `outra`.
+- `cancelamentos_mes` = reservas com `checkin` no mês e status `no_show`, ou `cancelada` com `gratis: false`.
+- `nao_cobrado_pct` = % dessas com `sinal_pago: false` (0 se nenhuma).
+- `retorno_atual_pct` = % das reservas do mês **com hóspede** cujo hóspede tem outra reserva `finalizada` com `checkout` nos 365 dias anteriores ao `checkin` (0 se nenhuma).
+- `ocupacao_baixa_pct` e `diaria_baixa` = `indicadores.ocupacao_pct` e `indicadores.diaria_media`, **presentes só se ≥ 50 % das noites do mês caem em temporada `tipo: "baixa"`** (pela regra 1 da seção 4, sem exigir preço); senão as chaves não aparecem.
+
+`indicadores`: `noites_ocupadas` = Σ noites no mês das reservas com status ∈ `confirmada, hospedada, finalizada`; `noites_disponiveis` = `uhs × dias do mês − noites bloqueadas` (bloqueios de quarto/tipo e fechamentos, por unidade); `ocupacao_pct` = `noites_ocupadas ÷ noites_disponiveis × 100` (0 se disponíveis = 0); `diaria_media` = `faturamento ÷ noites_ocupadas` (0 se nenhuma); `reserva_direta_pct` = `(faturamento − receita_ota) ÷ faturamento × 100` (0 se faturamento 0).
+
+`./reserva raiox --dados DIR --mes M --acompanhamento ARQ`: lê `ARQ` (formato do `raio-x-margem/app/painel-motor.js`: `{tipo: "acompanhamento", pacote, cliente, base: {data, valores}, meses: [{mes, valores, obs}]}`), insere ou substitui o mês `M` com `valores` = os de `valores` da rota acima (**nunca** os de `indicadores`) **mesclados** sobre os valores do mês anterior (ou da base) e `obs: "reserva-hotel"`, e grava de volta. Campos que o sistema não mede (ex.: `comissao_ota_pct`, `fat_cartao`) ficam como estavam. Sai com código 0.
+
+## 13. LGPD
+
+- `GET /api/hospedes/{id}/dados` devolve tudo o que há do hóspede: `hospede` `{id, nome, telefone, email, documento, consentimento_marketing, nao_contatar}`, `reservas` (mesmo formato da listagem) e `mensagens` = recebidas e enviadas, cada uma `{direcao: "entrada" | "saida", texto, quando}`.
+- `DELETE /api/hospedes/{id}`: nome vira `removido`, `telefone`, `email` e `documento` viram `null`, `pre_checkin` e `observacoes` das reservas dele viram `null`, reservas `confirmada` viram `cancelada` (`hospedada`/`finalizada`/`no_show` ficam), textos de mensagens dele viram `""`. Depois disso, mensagens ao telefone antigo são tratadas como de telefone desconhecido. Números agregados do `/api/raiox` continuam contando as estadias passadas.
+
+## 14. Fora do v1 (não implementar; portão humano ou próxima versão)
+
+Pagamento (Pix/PSP, cartão, cobrança automática do sinal ou de no-show) e expiração automática de reserva sem sinal; **sincronização iCal por URL** (buscar o calendário da OTA pela rede) e channel manager/API da Booking, Airbnb ou Expedia; WhatsApp Cloud API oficial da Meta (v1 usa a Evolution); SMS/e-mail; catálogo e venda de **extras** (jantar, transfer, late check-out pago); preço dinâmico por demanda; alocação de quarto na hora da reserva (v1 aloca no check-in); overbooking controlado; várias pousadas no mesmo servidor; login por usuário; nota fiscal; LLM nas respostas (pode entrar depois atrás de uma opção desligada por padrão; os testes nunca a usam); interface EN/ES; deploy na VPS (é do humano: README explica).
+
+## 15. Páginas
+
+- `GET /` → HTML do chat do hóspede, com elemento `id="chat"`, que usa `/api/mensagens`.
+- `GET /equipe` → HTML da equipe com elementos `id="mapa"` (ocupação por noite), `id="chegadas"` (chegadas e saídas do dia), `id="reservas"`, `id="fila-humano"` e `id="cadastros"`; pede o token e usa as rotas [R] (reservas com sinal/check-in/check-out/no-show/cancelar, cadastros, bloqueios, fila humana com responder/encerrar, importação iCal por arquivo).
+
+## 16. Cadastros [R]
+
+| Método e rota | Corpo | Resposta |
+|---|---|---|
+| `GET /api/tipos` (público) | — | só os ativos (seção 6) |
+| `POST /api/tipos` | `{id, nome, unidades, adultos_max, criancas_max, ocupacao_base?, tarifa_base, pessoa_extra}` | 201; `id` repetido → 409 |
+| `PUT /api/tipos/{id}` | campos parciais | 200 com o tipo; inexistente → 404 |
+| `DELETE /api/tipos/{id}` | — | 200 `{"ativo": false}`. Inativo some de `/api/tipos`, da disponibilidade e do chat, e não aceita reserva nova (422 `tipo`); as reservas já feitas continuam |
+| `GET /api/quartos` | — | 200 `{"quartos": [{id, tipo}]}` ordem de `id` |
+| `POST /api/quartos` | `{id, tipo}` | 201; `id` repetido → 409; tipo inexistente → 422. Passa a contar nas unidades do tipo (seção 3) |
+| `DELETE /api/quartos/{id}` | — | 204; quarto com reserva `hospedada` → 409 |
+| `GET /api/temporadas` | — | 200 `{"temporadas": [{id, nome, tipo, de, ate, precos}]}` na ordem de cadastro |
+| `POST /api/temporadas` | `{id, nome, tipo, de, ate, precos}` | 201 (entra no **fim** da ordem); `id` repetido → 409; `tipo` fora de `alta\|baixa\|feriado` ou `ate < de` → 422 |
+| `DELETE /api/temporadas/{id}` | — | 204 |
+| `GET /api/estadias-minimas` / `POST` `{de, ate, noites}` / `DELETE /api/estadias-minimas/{id}` | | 200 `{"estadias_minimas": [{id, de, ate, noites}]}` em ordem de `id` (os semeados do `pousada.json` vêm primeiro, na ordem do arquivo) / 201 `{id}` / 204 |
+| `GET /api/fechamentos` / `POST` `{de, ate, motivo}` / `DELETE /api/fechamentos/{id}` | | 200 `{"fechamentos": [{id, de, ate, motivo}]}` em ordem de `id` / 201 `{id, conflitos}` / 204 |
+| `GET /api/bloqueios[?quarto=Q]` | — | 200 `{"bloqueios": [{id, quarto, tipo, de, ate, motivo}]}` em ordem de `id` |
+| `POST /api/bloqueios` | `{quarto, de, ate, motivo}` **ou** `{tipo, de, ate, motivo}` | 201 `{id, conflitos}`; quarto/tipo inexistente → 422 |
+| `DELETE /api/bloqueios/{id}` | — | 204 e libera |
+| `GET /api/faq` / `POST /api/faq` `{perguntas, resposta}` / `DELETE /api/faq/{id}` | | 200 `{"faq": [{id, perguntas, resposta}]}` em ordem de cadastro (os semeados mantêm o `id` do `pousada.json`, na ordem do arquivo; os criados pela API ganham `id` gerado e entram no fim) / 201 `{id}` (o bot passa a usar na hora) / 204 (para de usar na hora) |
+
+`conflitos` (fechamento e bloqueio) = ids das reservas ativas que, em alguma noite do período, ficam com `ocupadas + bloqueadas > unidades` do tipo, mais (bloqueio de quarto) as reservas `hospedada` naquele quarto no período. Nada é cancelado sozinho. Bloqueio e fechamento tiram as noites da disponibilidade (seção 3) e do calendário iCal (seção 11).
+
+## 17. Banco de dados
+
+- `./reserva backup --dados DIR --saida ARQ` → grava em `ARQ` uma cópia consistente de todo o estado (pode rodar com o servidor ligado). Código 0.
+- `./reserva restaurar --dados DIR --entrada ARQ` → com o servidor parado, substitui o estado de `DIR` pelo do backup. Código 0. Ao subir de novo, tudo volta como estava no momento do backup.
+
+## 18. WhatsApp pela Evolution API
+
+Variáveis: `EVOLUTION_URL` (ex.: `http://evolution:8080`), `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCIA`, `WEBHOOK_SEGREDO`. Sem `EVOLUTION_URL` → canal simulado (só caixa de saída, `status: "simulado"`).
+
+**Entrada** — `POST /webhook/evolution/{WEBHOOK_SEGREDO}` (segredo errado → 404). Formato da Evolution v2:
+```json
+{"event": "messages.upsert", "instance": "pousada",
+ "data": {"key": {"remoteJid": "5554999990001@s.whatsapp.net", "fromMe": false, "id": "ABC123"},
+          "pushName": "Maria", "message": {"conversation": "oi"}, "messageType": "conversation"}}
+```
+- Sempre responde 200. Ignora: `event` diferente de `messages.upsert`, `fromMe: true`, `remoteJid` de grupo (`@g.us`), `key.id` já processado (a Evolution reenvia).
+- Texto = `message.conversation` ou `message.extendedTextMessage.text`. Sem texto (áudio, imagem...) → responde `Por enquanto só consigo ler mensagens de texto.`
+- Telefone = dígitos do `remoteJid` antes do `@`, normalizado como na seção 6. Passa pela mesma conversa da seção 7 (o mesmo hóspede, o mesmo estado).
+- Cada resposta da conversa vai por `POST {EVOLUTION_URL}/message/sendText/{EVOLUTION_INSTANCIA}` com header `apikey: {EVOLUTION_API_KEY}` e corpo `{"number": "<dígitos com 55>", "text": "<texto>"}`, na ordem.
+
+**Saída** (lembrete, espera, pós-estadia, humano): com a Evolution configurada, cada mensagem da caixa de saída é enviada do mesmo jeito. Em `/api/saida` cada mensagem tem `status`: `enviado` (2xx), `pendente` (erro HTTP ou de conexão) ou `simulado`. `POST /api/tarefas/rodar` reenvia as `pendente` e devolve `"reenviadas": n` (as que viraram `enviado`). `tarefas/rodar` e `responder` só devolvem a resposta HTTP depois de tentar os envios (o `status` já está definido). Respostas ao webhook e avisos ao Telegram podem ser assíncronos.
+
+## 19. Atendimento interno pelo Telegram
+
+Variáveis: `TELEGRAM_API_URL` (ex.: a URL base da API do Telegram), `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` (grupo da equipe), `TELEGRAM_SEGREDO`. Sem elas, nada vai ao Telegram (o resto funciona igual). Envio: `POST {TELEGRAM_API_URL}/bot{TELEGRAM_TOKEN}/sendMessage` com `{"chat_id", "text"[, "reply_to_message_id"]}`; a resposta do Telegram traz `result.message_id`.
+
+**Atendimento humano** (`/api/atendimento-humano` só com os `aberto`):
+- Ao abrir (pedido de atendente, 2º "não entendi"): manda ao grupo um texto com `#<id>`, telefone, nome (se houver), motivo e a última mensagem do hóspede. Guarda o `message_id`.
+- Enquanto o atendimento do telefone estiver `aberto`, o bot **não responde** sozinho (`respostas: []`); cada mensagem do hóspede vai ao grupo como `#<id> <nome ou telefone>: <texto>`, em resposta (`reply_to_message_id`) à mensagem de abertura.
+- `POST /webhook/telegram` exige header `X-Telegram-Bot-Api-Secret-Token: {TELEGRAM_SEGREDO}` (senão 401). Só aceita updates de `message.chat.id == TELEGRAM_CHAT_ID` (comparados como texto: o update traz número, a variável traz texto); os outros são ignorados (200, sem efeito).
+- Mensagem da equipe que é resposta (`reply_to_message.message_id`) a uma mensagem do atendimento `#id` → o texto vai ao hóspede (caixa de saída `tipo: "humano"`, e pela Evolution se configurada).
+- Comandos: `/responder <id> <texto>` (o mesmo, sem precisar responder em cima); `/encerrar <id>` → status `encerrado`, o bot volta a responder aquele telefone; `/fila` → lista dos abertos (cada um com `#id`); `/chegadas [AAAA-MM-DD]` (padrão: hoje) → texto com `Chegadas DD/MM:` seguido de uma linha `#<id> <nome ou origem> — <nome do tipo> (<quarto ou "sem quarto">)` por chegada do dia (seção 6, `/api/dia`), depois `Saídas DD/MM:` e as saídas; sem nenhuma, a palavra `nenhuma` na seção; `/ocupacao [AAAA-MM]` (padrão: mês de hoje) → primeira linha `Ocupação AAAA-MM: X%` (`indicadores.ocupacao_pct` com 1 casa e vírgula, ex.: `1,2%`), depois uma linha `DD: <ocupadas>/<unidades>` por noite.
+- Pela página da equipe [R]: `POST /api/atendimento-humano/{id}/responder {texto}` e `POST /api/atendimento-humano/{id}/encerrar` fazem o mesmo.
+- **Avisos à equipe:** reserva feita pelo chat/WhatsApp (inclusive pela lista de espera) → `Nova reserva: #<id> DD/MM a DD/MM <nome do tipo> — <nome do hóspede> (direta)`; cancelamento pelo chat → texto começando com `Cancelada:` e contendo `#<id>` e `DD/MM a DD/MM`.
+
+## 20. Docker / VPS
+
+- `Dockerfile` (imagem oficial `python:3-slim` ou similar, **sem `pip install`**) que roda `./reserva serve --host 0.0.0.0 --porta 8080 --dados /dados`, com `HEALTHCHECK` em `/api/saude`.
+- `docker-compose.yml` com o serviço `reserva`: `build: .`, `restart: unless-stopped`, `env_file: .env`, volume para `/dados`, porta publicada só em `127.0.0.1:8080` (na VPS fica atrás de proxy reverso com HTTPS).
+
+exec
+/bin/bash -lc "sed -n '286,460p' docs/ESPECIFICACAO.md; sed -n '1,125p' tests/conftest.py" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+- `.env.exemplo` com todas as variáveis das seções 18 e 19, **todas vazias** (`VARIAVEL=`; vazio = integração desativada), com comentário dizendo o que preencher; nenhum segredo real e nenhuma URL (o `verificar-limites.sh` barra URL externa também nos arquivos de entrega).
+- `README.md` com a seção **Deploy na VPS**: subir o compose, proxy HTTPS, configurar o webhook da Evolution para `/webhook/evolution/<segredo>` (evento `MESSAGES_UPSERT`), registrar o webhook do Telegram com `setWebhook` + `secret_token`, cadastrar a URL `/ical/<segredo>/…` na Booking/Airbnb e importar o `.ics` da OTA pela página da equipe, e o backup diário (`./reserva backup` no cron).
+"""Testes de aceitação caixa-preta do reserva-hotel (contrato: docs/ESPECIFICACAO.md).
+
+Sobem `./reserva serve --porta 0 --dados <tmp>` com relógio fixo e falam só HTTP/CLI,
+então valem para qualquer linguagem de implementação.
+"""
+import json
+import os
+import pathlib
+import shutil
+import signal
+import subprocess
+import threading
+import unicodedata
+import urllib.error
+import urllib.request
+
+import pytest
+
+RAIZ = pathlib.Path(__file__).resolve().parent.parent
+FIXTURE = pathlib.Path(__file__).resolve().parent / "fixtures" / "pousada.json"
+TOKEN = "segredo-teste"
+AGORA = "2026-10-06T09:00"  # terça-feira 06/10/2026 (conferido: datetime.date(2026,10,6).strftime('%a') == 'Tue')
+
+
+def norm(s):
+    """Minúsculas e sem acento, como o bot normaliza o texto para decidir."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower()) if unicodedata.category(c) != "Mn")
+
+
+class Cliente:
+    def __init__(self, base):
+        self.base = base
+
+    def req(self, metodo, rota, corpo=None, token=TOKEN):
+        dados = None if corpo is None else json.dumps(corpo).encode()
+        r = urllib.request.Request(self.base + rota, data=dados, method=metodo)
+        if dados is not None:
+            r.add_header("Content-Type", "application/json")
+        if token:
+            r.add_header("X-Token", token)
+        try:
+            with urllib.request.urlopen(r, timeout=10) as resp:
+                texto = resp.read().decode()
+                return resp.status, (json.loads(texto) if texto and "json" in resp.headers.get("Content-Type", "") else texto)
+        except urllib.error.HTTPError as e:
+            texto = e.read().decode()
+            try:
+                return e.code, json.loads(texto)
+            except ValueError:
+                return e.code, texto
+
+    def get(self, rota, **kw):
+        return self.req("GET", rota, **kw)
+
+    def post(self, rota, corpo=None, **kw):
+        return self.req("POST", rota, {} if corpo is None else corpo, **kw)
+
+    def put(self, rota, corpo=None, **kw):
+        return self.req("PUT", rota, {} if corpo is None else corpo, **kw)
+
+    def delete(self, rota, **kw):
+        return self.req("DELETE", rota, **kw)
+
+    # atalhos (padrões vêm do fixture; no verificar-independente.py passar tudo explícito)
+    def hospede(self, nome="Maria Silva", telefone="(54) 99999-0001", marketing=False):
+        st, r = self.post("/api/hospedes", {"nome": nome, "telefone": telefone, "consentimento_marketing": marketing})
+        assert st in (200, 201), (st, r)
+        return r["id"]
+
+    def reserva(self, hospede_id, checkin, checkout, tipo="standard", adultos=2, criancas=0, origem=None, total=None):
+        corpo = {"hospede_id": hospede_id, "tipo": tipo, "checkin": checkin, "checkout": checkout,
+                 "adultos": adultos, "criancas": criancas}
+        if origem:
+            corpo["origem"] = origem
+        if total is not None:
+            corpo["total"] = total
+        return self.post("/api/reservas", corpo)
+
+    def disponibilidade(self, checkin, checkout, adultos=2, criancas=0, origem=None):
+        rota = f"/api/disponibilidade?checkin={checkin}&checkout={checkout}&adultos={adultos}&criancas={criancas}"
+        if origem:
+            rota += f"&origem={origem}"
+        return self.get(rota, token=None)
+
+    def opcoes(self, checkin, checkout, adultos=2, criancas=0, origem=None):
+        st, r = self.disponibilidade(checkin, checkout, adultos, criancas, origem)
+        assert st == 200, (st, r)
+        return {o["tipo"]: o for o in r["opcoes"]}
+
+    def msg(self, telefone, texto):
+        st, r = self.post("/api/mensagens", {"telefone": telefone, "texto": texto}, token=None)
+        assert st == 200, (st, r)
+        return "\n".join(r["respostas"])
+
+    def saida(self, tipo=None):
+        st, r = self.get("/api/saida")
+        assert st == 200, (st, r)
+        return [m for m in r["mensagens"] if tipo is None or m["tipo"] == tipo]
+
+    def rodar(self, agora=None):
+        st, r = self.post("/api/tarefas/rodar", {"agora": agora} if agora else {})
+        assert st == 200, (st, r)
+        return r["enviadas"]
+
+
+SERVIDORES = []
+
+
+@pytest.fixture(autouse=True)
+def _parar_servidores():
+    """Para todo Servidor criado no teste, mesmo que uma asserção falhe antes do parar() explícito
+    (evita `reserva serve` órfão quando o teste sobe o servidor fora de try/finally)."""
+    yield
+    while SERVIDORES:
+        SERVIDORES.pop().parar()
+
+
+class Servidor:
+    def __init__(self, dados, agora=AGORA, env=None):
+        SERVIDORES.append(self)  # o teardown autouse para todos, mesmo se o teste falhar
+        self.dados = dados
+        self.agora = agora
+        self.env = env or {}
+        self.proc = None
+
+
+codex
+O projeto ainda não tem código de execução. Neste ciclo vou implementar o servidor, a persistência SQLite, autenticação, disponibilidade e tarifas, além da criação e consulta de hóspedes e reservas. Isso estabelece a base para os fluxos de estadia e conversa dos próximos ciclos.
+
+exec
+/bin/bash -lc 'cat tests/test_tarifas.py; cat tests/test_inventario.py' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+"""Seção 4: cálculo do total por noite, temporadas, pessoa extra, pacote de baixa, desconto direto, sinal, arredondamento.
+Agora = 06/10/2026. Fixture: standard 300 (extra 80), suíte 450 (extra 100), chalé 289,85 (extra 60); ocupação base 2.
+Temporadas na ordem: feriado 14–15/11 (standard 380, suíte 560), baixa 01–30/11 (240/360), Natal 20/12–05/01 (480/700).
+Pacote baixa 3 noites pagam 2; desconto direto 10 % (direta e balcão); sinal 30 % (canal próprio)."""
+
+
+def total(api, checkin, checkout, tipo="standard", adultos=2, criancas=0, origem=None):
+    o = api.opcoes(checkin, checkout, adultos, criancas, origem)
+    assert tipo in o, (tipo, o)
+    return o[tipo]
+
+
+def test_tarifa_base_desconto_e_sinal(api):
+    # 2 noites × 300 = 600; direta: 600 − 10 % = 540,00; sinal 30 % = 162,00
+    o = total(api, "2026-10-10", "2026-10-12")
+    assert (o["total"], o["sinal"]) == (540.0, 162.0)
+    assert o["detalhe"]["subtotal"] == 600.0 and o["detalhe"]["desconto_direto"] == 60.0
+    assert [d["valor"] for d in o["detalhe"]["diarias"]] == [300.0, 300.0]
+    assert [d["temporada"] for d in o["detalhe"]["diarias"]] == [None, None]
+    assert o["beneficio"] == "café da manhã incluso e late check-out sujeito a disponibilidade"
+    assert o["detalhe"]["pacote_baixa"] == 0 and o["detalhe"]["pessoa_extra"] == 0
+
+
+def test_origem_muda_desconto_e_sinal(api):
+    assert total(api, "2026-10-10", "2026-10-12", origem="balcao")["total"] == 540.0    # canal próprio
+    o = total(api, "2026-10-10", "2026-10-12", origem="booking")
+    assert (o["total"], o["sinal"], o["beneficio"]) == (600.0, 0, None)                   # OTA: sem desconto, sem sinal
+    assert total(api, "2026-10-10", "2026-10-12", origem="airbnb")["total"] == 600.0
+    hid = api.hospede()
+    st, r = api.reserva(hid, "2026-10-10", "2026-10-12", origem="booking")
+    assert st == 201 and (r["total"], r["sinal"], r["origem"]) == (600.0, 0, "booking")
+    st, r = api.reserva(hid, "2026-10-10", "2026-10-12")                                    # padrão [R] = balcão
+    assert (r["total"], r["sinal"], r["origem"]) == (540.0, 162.0, "balcao")
+
+
+def test_pessoa_extra(api):
+    # standard 2 adultos + 1 criança = 3 pessoas, base 2 → 1 extra × 80 × 2 noites = 160; (600 + 160) − 10 % = 684,00; sinal 205,20
+    o = total(api, "2026-10-10", "2026-10-12", criancas=1)
+    assert (o["detalhe"]["pessoa_extra"], o["total"], o["sinal"]) == (160.0, 684.0, 205.2)
+    # suíte 3 adultos, 1 noite: 450 + 100 = 550 − 55 = 495,00; sinal 148,50
+    o = total(api, "2026-10-10", "2026-10-11", tipo="suite", adultos=3)
+    assert (o["total"], o["sinal"]) == (495.0, 148.5)
+    # 1 adulto: nada extra
+    assert total(api, "2026-10-10", "2026-10-11", adultos=1)["total"] == 270.0
+
+
+def test_temporada_baixa_com_pacote_3x2(api):
+    # 02→05/11: 3 noites de baixa × 240 = 720; pacote = 1 noite grátis (240) → 480 − 10 % = 432,00; sinal 129,60
+    o = total(api, "2026-11-02", "2026-11-05")
+    assert [d["temporada"] for d in o["detalhe"]["diarias"]] == ["baixa-nov"] * 3
+    assert (o["detalhe"]["pacote_baixa"], o["detalhe"]["subtotal"], o["total"], o["sinal"]) == (240.0, 480.0, 432.0, 129.6)
+    # 4 noites: 960 − 240 = 720 → 648,00 (só um pacote inteiro)
+    assert total(api, "2026-11-02", "2026-11-06")["total"] == 648.0
+    # 6 noites: 1440 − 480 = 960 → 864,00 (dois pacotes)
+    assert total(api, "2026-11-02", "2026-11-08")["total"] == 864.0
+    # 2 noites: sem pacote → 480 − 48 = 432,00
+    assert total(api, "2026-11-02", "2026-11-04")["detalhe"]["pacote_baixa"] == 0
+    # só as noites de baixa contam e a grátis é a mais barata delas:
+    # 28/11→02/12: 28, 29, 30/11 baixa (240) + 01/12 base (300) = 1020; 3 noites de baixa → 1 grátis (240) → 780 → 702,00
+    o = total(api, "2026-11-28", "2026-12-02")
+    assert (o["detalhe"]["subtotal"], o["detalhe"]["pacote_baixa"], o["total"]) == (780.0, 240.0, 702.0)
+
+
+def test_feriado_vence_baixa_pela_ordem_e_nao_entra_no_pacote(api):
+    # 13→16/11: noite 13 baixa (240), noites 14 e 15 feriado (380, listado antes da baixa) = 1000; só 1 noite de baixa → sem pacote
+    # 1000 − 10 % = 900,00; sinal 270,00
+    o = total(api, "2026-11-13", "2026-11-16")
+    assert [(d["valor"], d["temporada"]) for d in o["detalhe"]["diarias"]] == [(240.0, "baixa-nov"), (380.0, "feriado-nov"), (380.0, "feriado-nov")]
+    assert (o["detalhe"]["pacote_baixa"], o["total"], o["sinal"]) == (0, 900.0, 270.0)
+
+
+def test_temporada_sem_preco_para_o_tipo_usa_tarifa_base(api):
+    # chalé não tem preço na baixa: a temporada é ignorada para ele (seção 4, regra 1 → temporada null, sem pacote):
+    # 25→27/11 = 2 × 289,85 = 579,70; balcão −57,97 = 521,73; sinal 156,519 → 156,52
+    o = total(api, "2026-11-25", "2026-11-27", tipo="chale", origem="balcao")
+    assert [d["temporada"] for d in o["detalhe"]["diarias"]] == [None, None]
+    # 3 noites: continua sem pacote (as noites não são "de baixa" para o chalé): 3 × 289,85 = 869,55 − 86,955 → 86,96 = 782,59
+    assert total(api, "2026-11-25", "2026-11-28", tipo="chale", origem="balcao")["detalhe"]["pacote_baixa"] == 0
+    assert (o["detalhe"]["subtotal"], o["total"], o["sinal"]) == (579.7, 521.73, 156.52)
+
+
+def test_alta_temporada_natal(api):
+    # 20→23/12: 3 × 480 = 1440 − 144 = 1296,00; sinal 388,80
+    o = total(api, "2026-12-20", "2026-12-23")
+    assert (o["total"], o["sinal"]) == (1296.0, 388.8)
+    assert total(api, "2026-12-20", "2026-12-23", tipo="suite")["total"] == 1890.0  # 3 × 700 − 10 %
+
+
+def test_arredondamento_meio_centavo_para_cima(api):
+    # chalé 1 noite 289,85; desconto 10 % = 28,985 → 28,99 (half-up; half-even daria 28,98); total 260,86; sinal 78,258 → 78,26
+    o = total(api, "2026-10-10", "2026-10-11", tipo="chale")
+    assert (o["detalhe"]["desconto_direto"], o["total"], o["sinal"]) == (28.99, 260.86, 78.26)
+    assert total(api, "2026-10-10", "2026-10-11", tipo="chale", origem="booking")["total"] == 289.85
+
+
+def test_total_informado_pela_equipe(api):
+    hid = api.hospede()
+    # suíte 10→12/11 na baixa = 2 × 360 = 720, mas a Booking cobrou 900
+    st, r = api.reserva(hid, "2026-11-10", "2026-11-12", tipo="suite", origem="booking", total=900)
+    assert st == 201 and r["total"] == 900.0 and r["detalhe"]["informado"] is True and r["detalhe"]["subtotal"] == 720.0
+    st, r = api.put(f"/api/reservas/{r['id']}", {"total": 950.5})
+    assert st == 200 and r["total"] == 950.5
+    # canal próprio com total informado recalcula o sinal: 30 % de 1000 = 300
+    st, r = api.reserva(hid, "2026-10-10", "2026-10-12", total=1000)
+    assert (r["total"], r["sinal"], r["detalhe"]["informado"]) == (1000.0, 300.0, True)
+
+
+def test_reserva_guarda_o_detalhe(api):
+    hid = api.hospede()
+    st, r = api.reserva(hid, "2026-11-02", "2026-11-05", criancas=1, origem="balcao")
+    # 720 + extra 80 × 3 = 240 − pacote 240 = 720 − 72 = 648,00
+    assert st == 201 and r["total"] == 648.0
+    assert (r["detalhe"]["pessoa_extra"], r["detalhe"]["pacote_baixa"], r["detalhe"]["desconto_direto"]) == (240.0, 240.0, 72.0)
+    assert api.get(f"/api/reservas/{r['id']}")[1]["detalhe"]["subtotal"] == 720.0
+"""Seção 3 (e rotas da seção 6): noites, disponibilidade, validação, overbooking, check-in/out, no-show.
+Agora = ter 06/10/2026 09:00. Fixture: standard 3 un (101,102,103), suíte 2 un (201,202), chalé 1 un (sem quarto).
+Fechamento 26–28/10 (noites 26, 27 e 28). Estadia mínima 2 noites em 14–15/11 e 3 noites em 20/12–05/01."""
+import threading
+
+
+def test_disponibilidade_conta_noites_e_unidades(api):
+    st, r = api.disponibilidade("2026-10-10", "2026-10-12")  # sáb 10 → seg 12 = noites 10 e 11
+    assert st == 200
+    assert (r["checkin"], r["checkout"], r["noites"], r["adultos"], r["criancas"]) == ("2026-10-10", "2026-10-12", 2, 2, 0)
+    assert [o["tipo"] for o in r["opcoes"]] == ["standard", "suite", "chale"]
+    assert [o["disponiveis"] for o in r["opcoes"]] == [3, 2, 1]
+    assert r["opcoes"][0]["nome"] == "Standard"
+
+
+def test_checkin_inclusivo_checkout_exclusivo(api):
+    hid = api.hospede()
+    # chalé tem 1 unidade: 10→12 ocupa as noites 10 e 11; 12→14 ocupa 12 e 13 → não se sobrepõem
+    assert api.reserva(hid, "2026-10-10", "2026-10-12", tipo="chale")[0] == 201
+    assert api.reserva(hid, "2026-10-12", "2026-10-14", tipo="chale")[0] == 201
+    # 11→13 sobrepõe a noite 11 (e a 12) → 409
+    st, r = api.reserva(hid, "2026-10-11", "2026-10-13", tipo="chale")
+    assert st == 409 and r["erro"] == "sem_disponibilidade"
+    # 09→10 ocupa só a noite 9 → livre
+    assert api.reserva(hid, "2026-10-09", "2026-10-10", tipo="chale")[0] == 201
+    assert "chale" not in api.opcoes("2026-10-11", "2026-10-12")
+    assert api.opcoes("2026-10-14", "2026-10-15")["chale"]["disponiveis"] == 1
+
+
+def test_estadia_invalida_422(api):
+    hid = api.hospede()
+    casos = [
+        ({"checkin": "2026-10-12", "checkout": "2026-10-12"}, "datas"),   # checkout = checkin
+        ({"checkin": "2026-10-12", "checkout": "2026-10-10"}, "datas"),   # checkout antes
+        ({"checkin": "2026-10-05", "checkout": "2026-10-07"}, "datas"),   # check-in ontem
+        ({"checkin": "2027-10-07", "checkout": "2027-10-09"}, "datas"),   # hoje + 366 > janela de 365 (06/10/2026 + 365 = 06/10/2027)
+        ({"checkin": "10/10/2026", "checkout": "2026-10-12"}, "formato"),
+        ({"checkin": "2026-10-10", "checkout": "2026-10-12", "adultos": 0}, "capacidade"),
+        ({"checkin": "2026-10-10", "checkout": "2026-10-12", "adultos": 3}, "capacidade"),   # standard: 2 adultos
+        ({"checkin": "2026-10-10", "checkout": "2026-10-12", "criancas": 2}, "capacidade"),  # standard: 1 criança
+        ({"checkin": "2026-10-25", "checkout": "2026-10-27"}, "fechado"),  # noite 26 fechada
+        ({"checkin": "2026-10-28", "checkout": "2026-10-29"}, "fechado"),  # noite 28 ainda fechada
+    ]
+    for extra, erro in casos:
+        corpo = {"hospede_id": hid, "tipo": "standard", "adultos": 2, "criancas": 0} | extra
+        st, r = api.post("/api/reservas", corpo)
+        assert st == 422 and r["erro"] == erro, (extra, st, r)
+    # check-in hoje vale, e 29/10 (dia seguinte ao fechamento) também
+    assert api.reserva(hid, "2026-10-06", "2026-10-07")[0] == 201
+    assert api.reserva(hid, "2026-10-29", "2026-10-30")[0] == 201
+    assert api.reserva(hid, "2027-10-06", "2027-10-07")[0] == 201  # exatamente hoje + 365
+
+
+def test_estadia_minima(api):
+    hid = api.hospede()
+    st, r = api.reserva(hid, "2026-11-14", "2026-11-15")           # 1 noite no feriado (mínimo 2)
+    assert st == 422 and (r["erro"], r["minimo"]) == ("estadia_minima", 2)
+    assert api.reserva(hid, "2026-11-14", "2026-11-16")[0] == 201  # 2 noites
+    st, r = api.reserva(hid, "2026-12-19", "2026-12-21")           # noite 20 cai no Natal (mínimo 3)
+    assert st == 422 and r["minimo"] == 3
+    assert api.reserva(hid, "2026-12-19", "2026-12-22")[0] == 201  # 3 noites
+    st, r = api.disponibilidade("2026-12-24", "2026-12-25")
+    assert st == 422 and r["erro"] == "estadia_minima"
+
+
+def test_disponibilidade_filtra_capacidade(api):
+    # 3 adultos: standard (máx 2) some; suíte (3) e chalé (4) ficam
+    assert list(api.opcoes("2026-10-10", "2026-10-12", adultos=3)) == ["suite", "chale"]
+    # 2 adultos + 2 crianças: standard (1 criança) some
+    assert list(api.opcoes("2026-10-10", "2026-10-12", adultos=2, criancas=2)) == ["suite", "chale"]
+    assert api.disponibilidade("2026-10-10", "2026-10-12", adultos=5)[1]["opcoes"] == []
+
+
+def test_reserva_criada_e_listada(api):
+    hid = api.hospede("Maria Silva", "(54) 99999-0001")
+    assert api.reserva(9999, "2026-10-10", "2026-10-12")[0] == 404
+    assert api.reserva(hid, "2026-10-10", "2026-10-12", tipo="xyz")[0] == 404
+    assert api.get("/api/reservas/9999")[0] == 404
+    st, r = api.reserva(hid, "2026-10-10", "2026-10-12", tipo="suite", adultos=2)
+    assert st == 201, r
+    for k, v in {"status": "confirmada", "tipo": "suite", "checkin": "2026-10-10", "checkout": "2026-10-12", "noites": 2,
+                 "adultos": 2, "criancas": 0, "origem": "balcao", "quarto": None, "sinal_pago": False,
+                 "chegada_confirmada": False, "pre_checkin": None, "gratis": None, "telefone": "+5554999990001",
+                 "nome": "Maria Silva", "hospede_id": hid}.items():
+        assert r[k] == v, k
+    assert r["criada_em"] == "2026-10-06T09:00"
+    assert api.opcoes("2026-10-11", "2026-10-12")["suite"]["disponiveis"] == 1
+    st, lista = api.get("/api/reservas?de=2026-10-11&ate=2026-10-11")
+    assert [x["id"] for x in lista["reservas"]] == [r["id"]]
+    assert api.get("/api/reservas?de=2026-10-12&ate=2026-10-12")[1]["reservas"] == []   # checkout exclusivo
+    assert api.get(f"/api/reservas/{r['id']}")[1]["id"] == r["id"]
+    assert [x["id"] for x in api.get(f"/api/reservas?hospede_id={hid}")[1]["reservas"]] == [r["id"]]
+    api.post(f"/api/reservas/{r['id']}/cancelar")
+    # ordem: checkin, depois id
+    _, c = api.reserva(hid, "2026-10-12", "2026-10-13")
+    _, a = api.reserva(hid, "2026-10-10", "2026-10-11")
+    _, b = api.reserva(hid, "2026-10-10", "2026-10-12", tipo="suite")
+    st, lista = api.get("/api/reservas?de=2026-10-10&ate=2026-10-12")
+    assert [x["id"] for x in lista["reservas"]] == [r["id"], a["id"], b["id"], c["id"]]   # a cancelada continua listada
+    assert [x["id"] for x in api.get("/api/reservas?checkin=2026-10-10")[1]["reservas"]] == [r["id"], a["id"], b["id"]]
+    assert [x["id"] for x in api.get("/api/reservas?checkout=2026-10-12")[1]["reservas"]] == [r["id"], b["id"]]
+
+
+def test_lota_o_tipo_409(api):
+    hid = api.hospede()
+    for _ in range(2):
+        assert api.reserva(hid, "2026-10-10", "2026-10-12", tipo="suite")[0] == 201
+    st, r = api.reserva(hid, "2026-10-10", "2026-10-12", tipo="suite")
+    assert st == 409 and r["erro"] == "sem_disponibilidade"
+    assert "suite" not in api.opcoes("2026-10-10", "2026-10-12")
+    assert api.reserva(hid, "2026-10-10", "2026-10-12", tipo="standard")[0] == 201  # outro tipo segue livre
+
+
+def test_concorrencia_ultima_unidade_um_so_vence(api):
+    hid = api.hospede()
+    codigos = []
+
+    def tenta():
+        codigos.append(api.reserva(hid, "2026-10-20", "2026-10-22", tipo="chale")[0])
+
+    ts = [threading.Thread(target=tenta) for _ in range(10)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert sorted(codigos) == [201] + [409] * 9
+
+
+def test_concorrencia_n_unidades_exatamente_n_vencem(api):
+    hid = api.hospede()
+    codigos = []
+
+    def tenta():
+        codigos.append(api.reserva(hid, "2026-10-20", "2026-10-22", tipo="standard")[0])
+
+    ts = [threading.Thread(target=tenta) for _ in range(10)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert sorted(codigos) == [201] * 3 + [409] * 7
+
+
+def test_cancelar_libera_e_status_errado_409(api):
+    hid = api.hospede()
+    _, a = api.reserva(hid, "2026-10-20", "2026-10-22", tipo="chale")
+    st, r = api.post(f"/api/reservas/{a['id']}/cancelar")
+    assert st == 200 and r["status"] == "cancelada" and r["gratis"] is True  # 06/10 + 7 = 13/10 ≤ 20/10
+    assert api.opcoes("2026-10-20", "2026-10-22")["chale"]["disponiveis"] == 1
+    assert api.post(f"/api/reservas/{a['id']}/cancelar")[0] == 409
+    assert api.post(f"/api/reservas/{a['id']}/checkin")[0] == 409
+    assert api.get(f"/api/reservas/{a['id']}")[1]["gratis"] is True
+
+
+def test_checkin_atribui_quarto_e_checkout(api):
+    hid = api.hospede()
+    _, a = api.reserva(hid, "2026-10-06", "2026-10-08")
+    _, b = api.reserva(hid, "2026-10-06", "2026-10-08")
+    assert api.post(f"/api/reservas/{a['id']}/checkout")[0] == 409        # ainda não hospedada
+    st, r = api.post(f"/api/reservas/{a['id']}/checkin", {})
+    assert st == 200 and r["status"] == "hospedada" and r["quarto"] == "101"  # primeiro quarto livre por id
+    st, r = api.post(f"/api/reservas/{b['id']}/checkin", {"quarto": "101"})
+    assert st == 409                                                        # 101 ocupado nas mesmas noites
+    assert api.post(f"/api/reservas/{b['id']}/checkin", {"quarto": "201"})[0] == 422  # quarto de outro tipo
+    assert api.post(f"/api/reservas/{b['id']}/checkin", {"quarto": "999"})[0] == 422
+    st, r = api.post(f"/api/reservas/{b['id']}/checkin", {"quarto": "103"})
+    assert st == 200 and r["quarto"] == "103"
+    assert api.post(f"/api/reservas/{a['id']}/checkin", {})[0] == 409      # já hospedada
+    st, r = api.post(f"/api/reservas/{a['id']}/checkout")
+    assert st == 200 and r["status"] == "finalizada"
+    assert api.get(f"/api/reservas/{a['id']}")[1]["quarto"] == "101"
+    # chalé não tem quarto cadastrado → check-in com quarto null; check-out antecipado libera as noites restantes
+    _, c = api.reserva(hid, "2026-10-06", "2026-10-09", tipo="chale")   # noites 6, 7 e 8
+    assert api.post(f"/api/reservas/{c['id']}/checkin", {})[1]["quarto"] is None
+    assert "chale" not in api.opcoes("2026-10-07", "2026-10-09")
+    api.post(f"/api/reservas/{c['id']}/checkout")                        # saiu em 06/10 (hoje)
+    assert api.opcoes("2026-10-07", "2026-10-09")["chale"]["disponiveis"] == 1
+
+
+def test_no_show_libera_e_so_de_confirmada(api):
+    hid = api.hospede()
+    _, a = api.reserva(hid, "2026-10-06", "2026-10-08", tipo="chale")
+    st, r = api.post(f"/api/reservas/{a['id']}/no-show")
+    assert st == 200 and r["status"] == "no_show"
+    assert api.opcoes("2026-10-06", "2026-10-08")["chale"]["disponiveis"] == 1
+    assert api.post(f"/api/reservas/{a['id']}/no-show")[0] == 409
+    _, b = api.reserva(hid, "2026-10-06", "2026-10-08", tipo="chale")
+    api.post(f"/api/reservas/{b['id']}/checkin", {})
+    assert api.post(f"/api/reservas/{b['id']}/no-show")[0] == 409        # hospedada não vira no-show
+
+
+def test_bloqueio_de_quarto_reduz_unidades_e_avisa_conflito(api):
+    hid = api.hospede()
+    for _ in range(3):
+        assert api.reserva(hid, "2026-10-15", "2026-10-16")[0] == 201     # standard lotado na noite 15
+    st, r = api.post("/api/bloqueios", {"quarto": "103", "de": "2026-10-15", "ate": "2026-10-16", "motivo": "manutenção"})
+    assert st == 201 and len(r["conflitos"]) == 3                        # 3 reservas para 2 unidades restantes
+    assert "standard" not in api.opcoes("2026-10-15", "2026-10-16")      # noite 15: max(0, 3 − 3 − 1) = 0
+    assert api.opcoes("2026-10-16", "2026-10-17")["standard"]["disponiveis"] == 2   # noite 16: 3 − 0 − 1
+    assert api.opcoes("2026-10-17", "2026-10-18")["standard"]["disponiveis"] == 3   # fora do bloqueio
+    st, lista = api.get("/api/bloqueios?quarto=103")
+    assert [b["motivo"] for b in lista["bloqueios"]] == ["manutenção"]
+    assert api.delete(f"/api/bloqueios/{r['id']}")[0] == 204
+    assert api.opcoes("2026-10-16", "2026-10-17")["standard"]["disponiveis"] == 3
+    # bloqueio por tipo (chalé não tem quarto) sem conflito
+    st, r = api.post("/api/bloqueios", {"tipo": "chale", "de": "2026-10-20", "ate": "2026-10-20", "motivo": "pintura"})
+    assert st == 201 and r["conflitos"] == []
+    assert "chale" not in api.opcoes("2026-10-20", "2026-10-21")
+    assert api.post("/api/bloqueios", {"quarto": "999", "de": "2026-10-20", "ate": "2026-10-20", "motivo": "x"})[0] == 422
+
+
+def test_fechamento_novo_com_conflitos(api):
+    hid = api.hospede()
+    _, a = api.reserva(hid, "2026-11-20", "2026-11-22", tipo="chale")
+    st, r = api.post("/api/fechamentos", {"de": "2026-11-21", "ate": "2026-11-22", "motivo": "evento privado"})
+    assert st == 201 and r["conflitos"] == [a["id"]]
+    assert api.reserva(hid, "2026-11-21", "2026-11-22", tipo="suite")[0] == 422
+    assert api.delete(f"/api/fechamentos/{r['id']}")[0] == 204
+    assert api.reserva(hid, "2026-11-21", "2026-11-22", tipo="suite")[0] == 201
+
+
+def test_dia_chegadas_saidas_hospedados(api):
+    hid = api.hospede("Maria Lima", "54999990001")
+    _, a = api.reserva(hid, "2026-10-07", "2026-10-09")               # chega 07
+    _, b = api.reserva(hid, "2026-10-06", "2026-10-07", tipo="suite")  # chega hoje, sai 07
+    api.post(f"/api/reservas/{b['id']}/checkin", {})
+    _, c = api.reserva(hid, "2026-10-07", "2026-10-08", tipo="chale")
+    api.post(f"/api/reservas/{c['id']}/cancelar")                      # cancelada não aparece
+    st, r = api.get("/api/dia?data=2026-10-07")
+    assert st == 200 and r["data"] == "2026-10-07"
+    assert [x["id"] for x in r["chegadas"]] == [a["id"]]
+    assert [x["id"] for x in r["saidas"]] == [b["id"]]
+    assert r["hospedados"] == 0                                         # b sai dia 07 (checkout exclusivo)
+    assert api.get("/api/dia?data=2026-10-06")[1]["hospedados"] == 1
+
+
+def test_ocupacao_do_mes(api):
+    hid = api.hospede()
+    api.reserva(hid, "2026-10-10", "2026-10-12")                        # standard: noites 10 e 11
+    api.post("/api/bloqueios", {"quarto": "201", "de": "2026-10-10", "ate": "2026-10-10", "motivo": "m"})
+    st, r = api.get("/api/ocupacao?mes=2026-10")
+    assert st == 200 and r["mes"] == "2026-10" and r["unidades"] == 6 and len(r["dias"]) == 31
+    d10 = next(d for d in r["dias"] if d["data"] == "2026-10-10")
+    assert (d10["ocupadas"], d10["bloqueadas"], d10["livres"]) == (1, 1, 4)
+    def tri(x):
+        return (x["ocupadas"], x["bloqueadas"], x["livres"])
+    assert tri(d10["por_tipo"]["standard"]) == (1, 0, 2)
+    assert tri(d10["por_tipo"]["suite"]) == (0, 1, 1)
+    d26 = next(d for d in r["dias"] if d["data"] == "2026-10-26")      # fechamento: tudo bloqueado
+    assert (d26["bloqueadas"], d26["livres"]) == (6, 0)
+    d12 = next(d for d in r["dias"] if d["data"] == "2026-10-12")
+    assert (d12["ocupadas"], d12["livres"]) == (0, 6)
+
+
+def test_telefone_normalizado_e_duplicado(api):
+    st, r = api.post("/api/hospedes", {"nome": "A", "telefone": "(54) 99999-0001"})
+    assert st == 201
+    st2, r2 = api.post("/api/hospedes", {"nome": "A", "telefone": "+55 54 99999 0001"})
+    assert st2 == 200 and r2["id"] == r["id"]
+    st3, r3 = api.post("/api/hospedes", {"nome": "B", "telefone": "54 3333-4444"})
+    assert st3 == 201 and r3["id"] != r["id"]
+    st, dados = api.get(f"/api/hospedes/{r3['id']}/dados")
+    assert dados["hospede"]["telefone"] == "+555433334444"
+    for ruim in ("123", "abc", "+55 54 9999"):
+        assert api.post("/api/hospedes", {"nome": "C", "telefone": ruim})[0] == 400, ruim
+
+exec
+/bin/bash -lc "mkdir -p src; cat > reserva <<'EOF'
+#"'!/usr/bin/env python3
+from src.server import main
+
+if __name__ == '"'__main__':
+    main()
+EOF
+chmod +x reserva
+cat > src/domain.py <<'EOF'
+\"\"\"Persistent inventory and pricing. All money arithmetic uses Decimal.\"\"\"
+import json
+import os
+import re
+import shutil
+import sqlite3
+from datetime import date, datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+COLLECTIONS = ('tipos', 'quartos', 'temporadas', 'estadias_minimas', 'fechamentos', 'faq')
+
+
+class Error(Exception):
+    def __init__(self, status, erro, **fields):
+        self.status = status
+        self.body = dict(erro=erro, **fields)
+
+
+def agora():
+    return os.environ.get('RESERVA_AGORA') or datetime.now().isoformat(timespec='minutes')
+
+
+def hoje():
+    return date.fromisoformat(agora()[:10])
+
+
+def decimal(value):
+    return Decimal(str(value))
+
+
+def arred(value):
+    return value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def noites(inicio, fim):
+    d = date.fromisoformat(inicio)
+    end = date.fromisoformat(fim)
+    while d < end:
+        yield d.isoformat()
+        d += timedelta(days=1)
+
+
+def telefone(value):
+    digits = re.sub(r'\\D', '', str(value))
+    if len(digits) in (10, 11):
+        return '+55' + digits
+    if len(digits) in (12, 13) and digits.startswith('55'):
+        return '+' + digits
+    raise Error(400, 'telefone')
+
+
+class Store:
+    def __init__(self, directory):
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        config = directory / 'pousada.json'
+        if not config.exists():
+            shutil.copyfile(ROOT / 'exemplos/pousada.json', config)
+        self.config = json.loads(config.read_text())
+        self.path = directory / 'reserva.sqlite3'
+        with self.connect() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS objetos (colecao TEXT, id TEXT, dados TEXT, PRIMARY KEY(colecao,id))')
+            db.execute('CREATE TABLE IF NOT EXISTS meta (chave TEXT PRIMARY KEY, valor TEXT)')
+            if not db.execute(\"SELECT 1 FROM meta WHERE chave='semente'\").fetchone():
+                for collection in COLLECTIONS:
+                    for i, item in enumerate(self.config.get(collection, []), 1):
+                        self.save(db, collection, dict(item, id=item.get('id', i)))
+                db.execute(\"INSERT INTO meta VALUES ('semente','1')\")
+
+    def connect(self):
+        return sqlite3.connect(self.path, timeout=30)
+
+    def all(self, db, collection):
+        return [json.loads(row[0]) for row in db.execute('SELECT dados FROM objetos WHERE colecao=? ORDER BY rowid', (collection,))]
+
+    def get(self, db, collection, ident):
+        row = db.execute('SELECT dados FROM objetos WHERE colecao=? AND id=?', (collection, str(ident))).fetchone()
+        if row is None:
+            raise Error(404, 'inexistente')
+        return json.loads(row[0])
+
+    def save(self, db, collection, item):
+        db.execute('INSERT INTO objetos VALUES (?,?,?) ON CONFLICT(colecao,id) DO UPDATE SET dados=excluded.dados',
+                   (collection, str(item['id']), json.dumps(item, ensure_ascii=False)))
+        return item
+
+    def add(self, db, collection, item):
+        ident = db.execute('SELECT COALESCE(MAX(CAST(id AS INTEGER)),0)+1 FROM objetos WHERE colecao=?', (collection,)).fetchone()[0]
+        return self.save(db, collection, dict(item, id=ident))
+
+    def tipos(self, db):
+        result = []
+        rooms = self.all(db, 'quartos')
+        for item in self.all(db, 'tipos'):
+            if item.get('ativo', True):
+                item['ocupacao_base'] = item.get('ocupacao_base', 2)
+                item['unidades'] = sum(q['tipo'] == item['id'] for q in rooms) or item['unidades']
+                result.append(item)
+        return result
+
+    def inventory(self, db, tipo, night):
+        units = next(t['unidades'] for t in self.tipos(db) if t['id'] == tipo)
+        occupied = sum(r['tipo'] == tipo and r['status'] in ('confirmada', 'hospedada') and r['checkin'] <= night < r['checkout'] for r in self.all(db, 'reservas'))
+        blocked = sum(b['tipo'] == tipo and b['de'] <= night <= b['ate'] for b in self.all(db, 'bloqueios'))
+        if any(f['de'] <= night <= f['ate'] for f in self.all(db, 'fechamentos')):
+            blocked += units
+        return dict(ocupadas=occupied, bloqueadas=blocked, livres=max(0, units-occupied-blocked))
+
+    def validate(self, db, body, tipo=None):
+        try:
+            for key in ('checkin', 'checkout'):
+                if not re.fullmatch(r'\\d{4}-\\d{2}-\\d{2}', body[key]):
+                    raise ValueError()
+            start, end = (date.fromisoformat(body[k]) for k in ('checkin', 'checkout'))
+            adults, kids = body['adultos'], body.get('criancas', 0)
+            if type(adults) is not int or type(kids) is not int:
+                raise ValueError()
+        except (KeyError, ValueError, TypeError):
+            raise Error(422, 'formato')
+        if end <= start or start < hoje() or start > hoje() + timedelta(days=self.config['janela_dias']):
+            raise Error(422, 'datas')
+        t = self.get(db, 'tipos', tipo) if tipo is not None else None
+        if t and not t.get('ativo', True):
+            raise Error(422, 'tipo')
+        if adults < 1 or kids < 0 or (t and (adults > t['adultos_max'] or kids > t['criancas_max'])):
+            raise Error(422, 'capacidade')
+        nights = list(noites(start.isoformat(), end.isoformat()))
+        if any(f['de'] <= n <= f['ate'] for f in self.all(db, 'fechamentos') for n in nights):
+            raise Error(422, 'fechado')
+        minimum = max([f['noites'] for f in self.all(db, 'estadias_minimas') if any(f['de'] <= n <= f['ate'] for n in nights)] or [1])
+        if len(nights) < minimum:
+            raise Error(422, 'estadia_minima', minimo=minimum)
+        return nights
+
+    def price(self, db, t, nights, adults, kids, origin, informed=None):
+        daily, low = [], []
+        seasons = self.all(db, 'temporadas')
+        for n in nights:
+            season = next((s for s in seasons if s['de'] <= n <= s['ate'] and t['id'] in s['precos']), None)
+            value = decimal(season['precos'][t['id']] if season else t['tarifa_base'])
+            daily.append(dict(data=n, valor=float(value), temporada=season['id'] if season else None))
+            if season and season['tipo'] == 'baixa':
+                low.append(value)
+        package = self.config.get('pacote_baixa')
+        k = len(low)//package['noites']*(package['noites']-package['pagas']) if package else 0
+        free = sum(sorted(low)[:k], Decimal(0))
+        extra = decimal(t['pessoa_extra'])*max(0, adults+kids-t.get('ocupacao_base', 2))*len(nights)
+        subtotal = sum((decimal(d['valor']) for d in daily), Decimal(0))+extra-free
+        direct = origin in ('direta', 'balcao')
+        discount = arred(subtotal*decimal(self.config['desconto_direto_pct'])/100) if direct else Decimal(0)
+        total = arred(decimal(informed)) if informed is not None else subtotal-discount
+        signal = arred(total*decimal(self.config['sinal_pct'])/100) if direct else Decimal(0)
+        return dict(total=float(total), sinal=float(signal), detalhe=dict(diarias=daily, pessoa_extra=float(extra), pacote_baixa=float(free), subtotal=float(subtotal), desconto_direto=float(discount), informado=informed is not None))
+
+    def disponibilidade(self, db, body):
+        nights = self.validate(db, body)
+        adults, kids, origin = body['adultos'], body.get('criancas', 0), body.get('origem', 'direta')
+        options = []
+        for t in self.tipos(db):
+            if adults > t['adultos_max'] or kids > t['criancas_max']:
+                continue
+            available = min(self.inventory(db, t['id'], n)['livres'] for n in nights)
+            if available:
+                options.append(dict(tipo=t['id'], nome=t['nome'], disponiveis=available, beneficio=self.config['beneficio_direto'] if origin in ('direta', 'balcao') else None, **self.price(db, t, nights, adults, kids, origin)))
+        return dict(checkin=body['checkin'], checkout=body['checkout'], noites=len(nights), adultos=adults, criancas=kids, origem=origin, opcoes=options)
+
+    def reserva(self, db, body):
+        nights = self.validate(db, body, body.get('tipo'))
+        guest = self.get(db, 'hospedes', body.get('hospede_id'))
+        t = self.get(db, 'tipos', body['tipo'])
+        if not all(self.inventory(db, t['id'], n)['livres'] for n in nights):
+            raise Error(409, 'sem_disponibilidade')
+        origin = body.get('origem', 'balcao')
+        kids = body.get('criancas', 0)
+        item = dict(status='confirmada', hospede_id=guest['id'], tipo=t['id'], quarto=None, checkin=body['checkin'], checkout=body['checkout'], noites=len(nights), adultos=body['adultos'], criancas=kids, origem=origin, sinal_pago=False, chegada_confirmada=False, pre_checkin=None, observacoes=body.get('observacoes'), gratis=None, ical_uid=None, criada_em=agora())
+        item.update(self.price(db, t, nights, body['adultos'], kids, origin, body.get('total')))
+        return self.expand(db, self.add(db, 'reservas', item))
+
+    def expand(self, db, reservation):
+        guest = self.get(db, 'hospedes', reservation['hospede_id']) if reservation['hospede_id'] else {}
+        return dict(reservation, nome=guest.get('nome'), telefone=guest.get('telefone'))
+EOF" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+exec
+/bin/bash -lc "cat > src/server.py <<'EOF'
+\"\"\"HTTP adapter; each request owns a transaction and its SQLite connection.\"\"\"
+import argparse
+import calendar
+import hmac
+import json
+from datetime import timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
+
+from .domain import Store, Error, ROOT, hoje, agora, noites, telefone, decimal, arred
+
+
+def dispatch(store, db, method, path, query, body):
+    parts = path.strip('/').split('/')
+    if method == 'GET' and path == '/api/saude':
+        return 200, dict(ok=True, versao=(ROOT / 'VERSION').read_text().strip())
+    if method == 'GET' and path == '/api/tipos':
+        return 200, dict(tipos=store.tipos(db))
+    if method == 'GET' and path == '/api/disponibilidade':
+        for key, default in (('adultos', None), ('criancas', '0')):
+            try:
+                query[key] = int(query.get(key, default))
+            except (TypeError, ValueError):
+                raise Error(422, 'formato')
+        return 200, store.disponibilidade(db, query)
+    if path == '/api/hospedes' and method == 'POST':
+        number = telefone(body.get('telefone', ''))
+        previous = next((h for h in store.all(db, 'hospedes') if h['telefone'] == number), None)
+        if previous:
+            return 200, dict(id=previous['id'])
+        guest = dict(nome=body.get('nome', ''), telefone=number, email=body.get('email'), documento=body.get('documento'), consentimento_marketing=body.get('consentimento_marketing', False), nao_contatar=False)
+        return 201, dict(id=store.add(db, 'hospedes', guest)['id'])
+    if len(parts) == 4 and parts[1] == 'hospedes' and parts[3] == 'dados' and method == 'GET':
+        guest = store.get(db, 'hospedes', parts[2])
+        reservations = [store.expand(db, r) for r in store.all(db, 'reservas') if r['hospede_id'] == guest['id']]
+        return 200, dict(hospede=guest, reservas=reservations, mensagens=[])
+    if path == '/api/reservas':
+        if method == 'POST':
+            return 201, store.reserva(db, body)
+        if method == 'GET':
+            rows = store.all(db, 'reservas')
+            for key in ('checkin', 'checkout', 'hospede_id'):
+                if key in query:
+                    rows = [r for r in rows if str(r[key]) == query[key]]
+            if 'de' in query and 'ate' in query:
+                rows = [r for r in rows if r['checkin'] <= query['ate'] and r['checkout'] > query['de']]
+            return 200, dict(reservas=[store.expand(db, r) for r in sorted(rows, key=lambda r: (r['checkin'], r['id']))])
+    if len(parts) >= 3 and parts[1] == 'reservas':
+        r = store.get(db, 'reservas', parts[2])
+        if len(parts) == 3:
+            if method == 'GET':
+                return 200, store.expand(db, r)
+            if method == 'PUT':
+                if 'hospede_id' in body:
+                    r['hospede_id'] = store.get(db, 'hospedes', body['hospede_id'])['id']
+                if 'observacoes' in body:
+                    r['observacoes'] = body['observacoes']
+                if 'total' in body:
+                    r['total'] = float(arred(decimal(body['total'])))
+                    r['sinal'] = float(arred(decimal(r['total'])*decimal(store.config['sinal_pct'])/100)) if r['origem'] in ('direta', 'balcao') else 0
+                    r['detalhe']['informado'] = True
+                store.save(db, 'reservas', r)
+                return 200, store.expand(db, r)
+        if len(parts) == 4 and method == 'POST':
+            action = parts[3]
+            allowed = {'cancelar': ('confirmada', 'hospedada'), 'checkin': ('confirmada',), 'checkout': ('hospedada',), 'no-show': ('confirmada',)}
+            if action in allowed and r['status'] not in allowed[action]:
+                raise Error(409, 'status')
+            if action == 'cancelar':
+                r['status'] = 'cancelada'
+                r['gratis'] = (hoje()+timedelta(days=store.config['cancelamento_gratis_dias'])).isoformat() <= r['checkin']
+                result = dict(status=r['status'], gratis=r['gratis'])
+            elif action == 'checkin':
+                rooms = sorted([q['id'] for q in store.all(db, 'quartos') if q['tipo'] == r['tipo']])
+                selected = body.get('quarto')
+                if selected is not None and selected not in rooms:
+                    raise Error(422, 'quarto')
+                def available(room):
+                    conflicts = any(x['id'] "'!= r['"'id'] and x.get('quarto') == room and x['status'] in ('confirmada', 'hospedada') and x['checkin'] < r['checkout'] and r['checkin'] < x['checkout'] for x in store.all(db, 'reservas'))
+                    blocked = any(b.get('quarto') == room and b['de'] < r['checkout'] and r['checkin'] <= b['ate'] for b in store.all(db, 'bloqueios'))
+                    return not (conflicts or blocked)
+                candidates = [selected] if selected else rooms
+                free = [q for q in candidates if available(q)]
+                if candidates and not free:
+                    raise Error(409, 'quarto')
+                r.update(status='hospedada', quarto=free[0] if free else None)
+                result = dict(status=r['status'], quarto=r['quarto'])
+            elif action == 'checkout':
+                r.update(status='finalizada', checkout_real=agora()[:10])
+                result = dict(status=r['status'])
+            elif action == 'no-show':
+                r['status'] = 'no_show'
+                result = dict(status=r['status'])
+            elif action == 'sinal':
+                r['sinal_pago'] = bool(body.get('pago'))
+                result = dict(sinal_pago=r['sinal_pago'])
+            else:
+                raise Error(404, 'rota')
+            store.save(db, 'reservas', r)
+            return 200, result
+    if len(parts) >= 2 and parts[1] in ('bloqueios', 'fechamentos'):
+        collection = parts[1]
+        if len(parts) == 2 and method == 'GET':
+            rows = store.all(db, collection)
+            if 'quarto' in query:
+                rows = [r for r in rows if r.get('quarto') == query['quarto']]
+            return 200, {collection: rows}
+        if len(parts) == 3 and method == 'DELETE':
+            store.get(db, collection, parts[2])
+            db.execute('DELETE FROM objetos WHERE colecao=? AND id=?', (collection, parts[2]))
+            return 204, None
+        if len(parts) == 2 and method == 'POST':
+            try:
+                nights = list(noites(body['de'], ( __import__('datetime').date.fromisoformat(body['ate'])+timedelta(days=1)).isoformat()))
+                if not nights:
+                    raise ValueError()
+            except (ValueError, KeyError, TypeError):
+                raise Error(422, 'datas')
+            item = dict(de=body['de'], ate=body['ate'], motivo=body.get('motivo', ''))
+            if collection == 'bloqueios':
+                room = body.get('quarto')
+                try:
+                    kind = store.get(db, 'quartos', room)['tipo'] if room else body['tipo']
+                    store.get(db, 'tipos', kind)
+                except (Error, KeyError):
+                    raise Error(422, 'tipo')
+                item.update(tipo=kind, quarto=room)
+            saved = store.add(db, collection, item)
+            conflicts = []
+            for r in store.all(db, 'reservas'):
+                if r['status'] not in ('confirmada', 'hospedada') or (collection == 'bloqueios' and r['tipo'] "'!= item['"'tipo']):
+                    continue
+                for n in nights:
+                    if r['checkin'] <= n < r['checkout']:
+                        inv = store.inventory(db, r['tipo'], n)
+                        units = next(t['unidades'] for t in store.tipos(db) if t['id'] == r['tipo'])
+                        if inv['ocupadas']+inv['bloqueadas'] > units or (collection == 'bloqueios' and item['quarto'] and r['quarto'] == item['quarto'] and r['status'] == 'hospedada'):
+                            conflicts.append(r['id'])
+                            break
+            return 201, dict(id=saved['id'], conflitos=conflicts)
+    if path == '/api/dia' and method == 'GET':
+        day = query.get('data', hoje().isoformat())
+        rows = sorted(store.all(db, 'reservas'), key=lambda r: r['id'])
+        return 200, dict(data=day,
+            chegadas=[store.expand(db, r) for r in rows if r['checkin'] == day and r['status'] in ('confirmada', 'hospedada')],
+            saidas=[store.expand(db, r) for r in rows if r['checkout'] == day and r['status'] in ('hospedada', 'finalizada')],
+            hospedados=sum(r['status'] == 'hospedada' and r['checkin'] <= day < r['checkout'] for r in rows))
+    if path == '/api/ocupacao' and method == 'GET':
+        month = query['mes']
+        year, mon = map(int, month.split('-'))
+        kinds = store.tipos(db)
+        days = []
+        for d in range(1, calendar.monthrange(year, mon)[1]+1):
+            day = f'{month}-{d:02d}'
+            by_kind = {t['id']: store.inventory(db, t['id'], day) for t in kinds}
+            days.append(dict(data=day, por_tipo=by_kind, **{k: sum(v[k] for v in by_kind.values()) for k in ('ocupadas', 'bloqueadas', 'livres')}))
+        return 200, dict(mes=month, unidades=sum(t['unidades'] for t in kinds), dias=days)
+    raise Error(404, 'rota')
+
+
+def serve(args):
+    store = Store(args.dados)
+
+    class Handler(BaseHTTPRequestHandler):
+        def handle_request(self):
+            path = urlsplit(self.path).path
+            public = (self.command == 'GET' and path in ('/', '/equipe', '/api/saude', '/api/tipos', '/api/disponibilidade')) or (self.command == 'POST' and path == '/api/mensagens') or path.startswith(('/ical/', '/webhook/'))
+            try:
+                if not public and not hmac.compare_digest(self.headers.get('X-Token', '').encode(), str(store.config['token']).encode()):
+                    raise Error(401, 'token')
+                try:
+                    length = int(self.headers.get('Content-Length', '0'))
+                    if length < 0 or length > 2_000_000:
+                        raise Error(413, 'corpo')
+                    body = json.loads(self.rfile.read(length)) if length else {}
+                    if not isinstance(body, dict):
+                        raise ValueError()
+                except (ValueError, UnicodeDecodeError):
+                    raise Error(400, 'json')
+                query = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
+                db = store.connect()
+                try:
+                    with db:
+                        # Reserve the writer before checking capacity: no check/write race.
+                        if self.command "'!= '"'GET':
+                            db.execute('BEGIN IMMEDIATE')
+                        else:
+                            db.execute('BEGIN')
+                        status, result = dispatch(store, db, self.command, path, query, body)
+                finally:
+                    db.close()
+            except Error as exc:
+                status, result = exc.status, exc.body
+            except (ValueError, KeyError, TypeError):
+                status, result = 422, dict(erro='formato')
+            data = json.dumps(result, ensure_ascii=False).encode() if result is not None else b''
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        do_GET = do_POST = do_PUT = do_DELETE = handle_request
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer((args.host, args.porta), Handler)
+    print(f'PORTA={server.server_port}', flush=True)
+    server.serve_forever()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Reservas de pousada')
+    commands = parser.add_subparsers(dest='command', required=True)
+    server = commands.add_parser('serve')
+    server.add_argument('--porta', type=int, default=8080)
+    server.add_argument('--host', default='127.0.0.1')
+    server.add_argument('--dados', default='dados')
+    args = parser.parse_args()
+    serve(args)
+EOF
+python3 -m pytest -q tests/ > /tmp/reserva-pytest-ciclo1.log 2>&1; tail -n 30 /tmp/reserva-pytest-ciclo1.log" in /home/nmaldaner/projetos/reserva-hotel
+codex
+A base está implementada, incluindo tarifas com `Decimal`, bloqueios e transições de estadia. A criação de reservas abre uma transação SQLite antes de consultar a disponibilidade, para evitar que pedidos simultâneos ocupem a mesma vaga. A suíte completa está rodando; ainda faltam conversa, integrações, páginas e outras funcionalidades.
+
+exec
+/bin/bash -lc 'bash longrun/2026-10-05-reservas-v1/verificar-limites.sh > /tmp/reserva-limites-ciclo1.log 2>&1; tail -n 30 /tmp/reserva-limites-ciclo1.log' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 132ms:
+LIMITES OK (hash 784f3067f9b5210b, 98 testes, escopo ok, sem API/rede)
+
+exec
+/bin/bash -lc 'tail -n 5 /tmp/reserva-pytest-ciclo1.log; cat longrun/2026-10-05-reservas-v1/decisions.md; cat FALHAS.md' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+..FF..FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.FFFFFFFFFFFF# Decisões (só acrescentar)
+
+| data | decisão | motivo | alternativa descartada |
+|---|---|---|---|
+# FALHAS
+
+| data | o que quebrou | menor correção | prompt \| infra |
+|---|---|---|---|
+| 2026-10-05 | README: nada impedia o implementador de reescrever e derrubar "Como rodar no seu ambiente" (seção do dono) | `test_readme_explica_deploy` exige as duas seções; `prompt.md`/`goal.md` avisam | prompt |
+| 2026-10-05 | `verificar-limites.sh` libera `longrun/` inteiro e o hash não cobria `verificar-independente.py`: no `/goal` (sem o loop revertendo) o agente podia enfraquecer o verificador sem nada acusar | o arquivo entra no hash do `congelar.sh` e do `verificar-limites.sh` (+ `git diff --quiet` dele) | prompt |
+| 2026-10-05 | `reserva serve` podia ficar órfão: 7 testes criam `Servidor` fora de `try/finally` (mesmo bug achado no atende-clinica) | conftest: registro `SERVIDORES` + fixture `autouse` que para todos no teardown; provado com teste que falha de propósito → `pgrep` vazio | prompt |
+| 2026-10-05 | `test_reserva_pelo_chat_hospede_conhecido` exigia `"nome" not in` resposta — frágil (uma frase "em nome de Maria" quebraria um implementador honesto) | cláusula removida; a reserva já criada prova que não pediu nome | prompt |
+| 2026-10-05 | ambiguidades que um implementador honesto erra: token checado antes do corpo (`POST {}` sem token → 401), telefone por contagem de dígitos (10/11 × 12/13 com 55), conexões simultâneas (10 threads × backlog 5 do `http.server`), `chat.id` número × env texto, `rodar {agora}` = relógio só da rodada | uma frase em cada seção da spec (§1, §5, §6, §19) | prompt |
+| 2026-10-05 | ordem de listagem não definida na spec mas exigida pelos testes: `/api/espera`, `/api/estadias-minimas`, `/api/fechamentos`, `/api/bloqueios`, `/api/faq`, `/api/hospedes?busca`; filtros `?checkin/?checkout/?hospede_id` sem dizer "todos os status" | spec: "em ordem de `id`/cadastro"; filtros devolvem todos os status na mesma ordem | prompt |
+| 2026-10-05 | `enviadas` com a Evolution devolvendo 500: teste espera `1` (mensagem criada, `pendente`), spec não dizia que conta criadas; hóspede `nao_contatar`: teste espera `saida() == []`, spec não dizia que a mensagem não é criada | spec §6 e §9 | prompt |
+| 2026-10-05 | check-out antecipado: testes usam o `checkout` gravado (pós-estadia 08/10 + 2; `noites_ocupadas` = 1 para estadia que saiu no mesmo dia) mas a spec só dizia "libera a partir do check-out real", sem dizer que o campo não muda | spec §3/§9/§12: `checkin`/`checkout`/`noites` nunca mudam; data real só em `Livres` e no iCal | prompt |
+| 2026-10-05 | iCal: `eventos()` do teste exige `DTEND` imediatamente após `DTSTART` e VEVENTs em ordem cronológica; spec só listava as propriedades | spec §11: ordem das propriedades (uma por linha), eventos cronológicos, formato do `DTSTAMP` | prompt |
+| 2026-10-05 | `test_temporada_sem_preco_para_o_tipo_usa_tarifa_base` esperava `temporada: "baixa-nov"` para o chalé, mas a spec §4 ignora temporada sem preço do tipo e o `verificar-independente.py` espera o loft **sem** pacote (935,00): teste contradizia spec + verificador | teste → `[None, None]` (+ 3 noites sem pacote); spec explícita (`null`, não conta para o pacote); decisão 8 anotada | prompt |
+| 2026-10-05 | `montar_mes` (test_lgpd_raiox) reservava R6 standard 15→16/11 dentro da estadia mínima de 2 noites (14–15/11) → 422 `estadia_minima`, e `marca()` exige 201: `test_raiox_numeros_do_mes_de_baixa` e `test_cli_grava_mes_no_acompanhamento_do_painel` falhariam com implementação honesta | R6 → 17→18/11 (cancelada grátis, não entra em nenhum número) | prompt |
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+p='src/server.py'
+s=open(p).read().replace('from datetime import timedelta', 'from datetime import date, timedelta').replace(\"( __import__('datetime').date.fromisoformat(body['ate'])+timedelta(days=1))\", \"(date.fromisoformat(body['ate'])+timedelta(days=1))\")
+open(p,'w').write(s)
+PY" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+ succeeded in 26821ms:
+FAILED tests/test_docker.py::test_compose - AssertionError: falta docker-comp...
+FAILED tests/test_docker.py::test_env_exemplo_tem_todas_as_variaveis_sem_segredo_real
+FAILED tests/test_docker.py::test_readme_explica_deploy - AssertionError: ass...
+FAILED tests/test_ical.py::test_exporta_noites_lotadas_do_tipo_em_eventos_contiguos
+FAILED tests/test_ical.py::test_exporta_calendario_do_quarto - TypeError: exp...
+FAILED tests/test_ical.py::test_importa_ics_cria_reservas_de_origem_ota - ass...
+FAILED tests/test_ical.py::test_reimportacao_substitui_e_mantem_hospedada - I...
+FAILED tests/test_ical.py::test_importacao_com_conflito_nao_falha_e_nao_fica_negativa
+FAILED tests/test_ical.py::test_importacao_por_quarto_e_invalidas - assert (4...
+FAILED tests/test_ical.py::test_reimportacao_que_cancela_dispara_espera - Key...
+FAILED tests/test_integracoes.py::test_whatsapp_responde_pela_evolution - ass...
+FAILED tests/test_integracoes.py::test_whatsapp_ignora_o_que_nao_e_do_hospede
+FAILED tests/test_integracoes.py::test_whatsapp_sem_texto - assert 404 == 200
+FAILED tests/test_integracoes.py::test_whatsapp_reserva_e_avisa_equipe - asse...
+FAILED tests/test_integracoes.py::test_saida_pela_evolution_com_reenvio - Key...
+FAILED tests/test_integracoes.py::test_sem_evolution_status_simulado - Assert...
+FAILED tests/test_integracoes.py::test_abertura_vai_ao_grupo - AssertionError...
+FAILED tests/test_integracoes.py::test_atendimento_aberto_silencia_bot_e_repassa
+FAILED tests/test_integracoes.py::test_equipe_responde_em_cima_da_mensagem - ...
+FAILED tests/test_integracoes.py::test_webhook_telegram_protegido - Assertion...
+FAILED tests/test_integracoes.py::test_comandos_responder_encerrar_fila - Ass...
+FAILED tests/test_integracoes.py::test_comando_chegadas - assert False
+FAILED tests/test_integracoes.py::test_comando_ocupacao - assert False
+FAILED tests/test_integracoes.py::test_equipe_responde_e_encerra_pela_pagina
+FAILED tests/test_integracoes.py::test_cancelamento_pelo_chat_avisa_equipe - ...
+FAILED tests/test_lgpd_raiox.py::test_dados_e_exclusao - AssertionError: (404...
+FAILED tests/test_lgpd_raiox.py::test_raiox_numeros_do_mes_de_baixa - assert ...
+FAILED tests/test_lgpd_raiox.py::test_raiox_mes_vazio - assert 404 == 200
+FAILED tests/test_lgpd_raiox.py::test_cli_grava_mes_no_acompanhamento_do_painel
+66 failed, 32 passed in 26.68s
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+p=Path('README.md')
+s=p.read_text()
+start=s.index('**Estado (')
+end=s.index('\\n',start)
+s=s[:start]+'**Estado (19/10/2026): implementação parcial.** Servidor local, SQLite, autenticação, inventário, tarifas e operações básicas de reservas implementados; conversa, integrações, páginas e entrega Docker ainda pendentes. Evidências e próximos passos em "'`longrun/2026-10-05-reservas-v1/state.md`.'"'+s[end:]
+s+='''
+## Deploy na VPS
+
+A entrega Docker ainda está pendente; este é o procedimento previsto para quando os arquivos e comandos estiverem implementados e validados.
+
+1. Copie "'`.env.exemplo` para `.env`, configure os segredos e a pousada no volume de dados. Suba com `docker compose up -d --build`. O serviço deve publicar somente a porta local `127.0.0.1:8080`, com volume persistente em `/dados`.
+2. Configure um proxy reverso com HTTPS no domínio da pousada, encaminhando para essa porta local. Confira `/api/saude` pelo proxy.
+3. Para WhatsApp, preencha `EVOLUTION_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCIA` e `WEBHOOK_SEGREDO`. Configure na Evolution o evento `MESSAGES_UPSERT`, com destino no domínio HTTPS seguido de `/webhook/evolution/<segredo>`.
+4. Para a equipe, preencha `TELEGRAM_API_URL`, `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` e `TELEGRAM_SEGREDO`. Registre pelo método `setWebhook` o endereço HTTPS terminado em `/webhook/telegram`, com `secret_token` igual a `TELEGRAM_SEGREDO`. Integrações vazias ficam desativadas.
+5. Cadastre na Booking/Airbnb o endereço do domínio seguido de `/ical/<segredo>/tipo/<tipo>.ics` ou `/ical/<segredo>/quarto/<quarto>.ics`. Para importar, baixe o arquivo `.ics` da OTA e envie pela página da equipe. O sistema não busca calendários por URL.
+6. Agende backup diário no cron com `./reserva backup --dados DIR --saida ARQ` (dentro do container: `docker compose exec -T reserva ./reserva backup --dados /dados --saida /dados/backup-diario.db`). Guarde cópias fora da VPS e valide uma restauração com o servidor parado usando `./reserva restaurar --dados DIR --entrada ARQ` antes de operar com dados reais.
+'"'''
+p.write_text(s)
+Path('VERSION').write_text('0.2.0\\n')
+PY" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'python3 -m pytest -q tests/ > /tmp/reserva-pytest-ciclo1-final.log 2>&1; tail -n 30 /tmp/reserva-pytest-ciclo1-final.log' in /home/nmaldaner/projetos/reserva-hotel
+exec
+/bin/bash -lc 'bash longrun/2026-10-05-reservas-v1/verificar-limites.sh > /tmp/reserva-limites-ciclo1.log 2>&1; tail -n 5 /tmp/reserva-limites-ciclo1.log; git diff --stat' in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 170ms:
+LIMITES OK (hash 784f3067f9b5210b, 98 testes, escopo ok, sem API/rede)
+ README.md | 13 ++++++++++++-
+ VERSION   |  2 +-
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+codex
+A primeira rodada terminou com 32 testes aprovados e 66 falhas. O verificador de restrições retornou `LIMITES OK`. Acrescentei também a seção “Deploy na VPS”, marcada como procedimento futuro, preservando a descrição e “Como rodar no seu ambiente”. A suíte está sendo repetida após esse ajuste para registrar o resultado final do ciclo.
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+s=Path('/tmp/reserva-pytest-ciclo1.log').read_text()
+for line in s.splitlines():
+    if line.startswith('FAILED tests/test_') and any(x in line for x in ('test_basico', 'test_inventario', 'test_tarifas')):
+        print(line)
+PY" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+FAILED tests/test_basico.py::test_rotas_da_equipe_exigem_token - assert 404 =...
+FAILED tests/test_basico.py::test_paginas - assert (404 == 200)
+
+ succeeded in 26074ms:
+FAILED tests/test_docker.py::test_dockerfile - AssertionError: falta Dockerfile
+FAILED tests/test_docker.py::test_compose - AssertionError: falta docker-comp...
+FAILED tests/test_docker.py::test_env_exemplo_tem_todas_as_variaveis_sem_segredo_real
+FAILED tests/test_ical.py::test_exporta_noites_lotadas_do_tipo_em_eventos_contiguos
+FAILED tests/test_ical.py::test_exporta_calendario_do_quarto - TypeError: exp...
+FAILED tests/test_ical.py::test_importa_ics_cria_reservas_de_origem_ota - ass...
+FAILED tests/test_ical.py::test_reimportacao_substitui_e_mantem_hospedada - I...
+FAILED tests/test_ical.py::test_importacao_com_conflito_nao_falha_e_nao_fica_negativa
+FAILED tests/test_ical.py::test_importacao_por_quarto_e_invalidas - assert (4...
+FAILED tests/test_ical.py::test_reimportacao_que_cancela_dispara_espera - Key...
+FAILED tests/test_integracoes.py::test_whatsapp_responde_pela_evolution - ass...
+FAILED tests/test_integracoes.py::test_whatsapp_ignora_o_que_nao_e_do_hospede
+FAILED tests/test_integracoes.py::test_whatsapp_sem_texto - assert 404 == 200
+FAILED tests/test_integracoes.py::test_whatsapp_reserva_e_avisa_equipe - asse...
+FAILED tests/test_integracoes.py::test_saida_pela_evolution_com_reenvio - Key...
+FAILED tests/test_integracoes.py::test_sem_evolution_status_simulado - Assert...
+FAILED tests/test_integracoes.py::test_abertura_vai_ao_grupo - AssertionError...
+FAILED tests/test_integracoes.py::test_atendimento_aberto_silencia_bot_e_repassa
+FAILED tests/test_integracoes.py::test_equipe_responde_em_cima_da_mensagem - ...
+FAILED tests/test_integracoes.py::test_webhook_telegram_protegido - Assertion...
+FAILED tests/test_integracoes.py::test_comandos_responder_encerrar_fila - Ass...
+FAILED tests/test_integracoes.py::test_comando_chegadas - assert False
+FAILED tests/test_integracoes.py::test_comando_ocupacao - assert False
+FAILED tests/test_integracoes.py::test_equipe_responde_e_encerra_pela_pagina
+FAILED tests/test_integracoes.py::test_cancelamento_pelo_chat_avisa_equipe - ...
+FAILED tests/test_lgpd_raiox.py::test_dados_e_exclusao - AssertionError: (404...
+FAILED tests/test_lgpd_raiox.py::test_raiox_numeros_do_mes_de_baixa - assert ...
+FAILED tests/test_lgpd_raiox.py::test_raiox_mes_vazio - assert 404 == 200
+FAILED tests/test_lgpd_raiox.py::test_cli_grava_mes_no_acompanhamento_do_painel
+65 failed, 33 passed in 25.92s
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+from datetime import datetime
+root=Path('longrun/2026-10-05-reservas-v1')
+now=datetime.now().strftime('%Y-%m-%d %H:%M')
+(root/'plan.md').write_text('''# Plano
+
+## Estratégia atual
+Base, inventário e tarifas implementados; manter a suíte inteira como regressão a cada ciclo. Rotas ainda ausentes devolvem 404, sem simular funcionalidade.
+
+## Próximos 3 passos
+1. Implementar conversa persistida por telefone, FAQ, fila humana local, lista de espera, lembrete/pré-check-in, pós-estadia e cancelamento; integrar liberação de noites às ofertas.
+2. Completar cadastros, LGPD, Raio-X e CLI de backup/restauração; manter ordem de cadastro e semente única. Depois implementar importação/exportação iCal.
+3. Evolution/Telegram somente com servidores falsos; Docker e páginas funcionais; fechar com pytest completo e verificar-limites.sh. Marcar concluído somente se ambos passarem.
+''')
+with (root/'decisions.md').open('a') as f:
+    f.write(f'| {now} | SQLite com documentos JSON por coleção, chave estável e ordem por rowid; semente marcada em meta | Evoluir entidades sem perder ordem de cadastro; escalares relidos a cada início | Reimportar configuração a cada início |\\n')
+    f.write(f'| {now} | Uma conexão/transação por requisição; BEGIN IMMEDIATE antes das mutações | Serializar consulta de inventário e gravação, inclusive entre processos | Consultar vagas fora da transação |\\n')
+    f.write(f'| {now} | Cálculos monetários em Decimal/ROUND_HALF_UP, conversão para número apenas na resposta/armazenamento | Cumprir centavos e contrato JSON | Aritmética de preços em float |\\n')
+with (root/'canal.md').open('a') as f:
+    f.write(f'- {now} · fato · Primeira leitura integral da especificação e conftest feita; código dividido em src/domain.py (persistência/regras) e src/server.py (HTTP/rotas), executável reserva. Nenhuma integração chama rede.\\n')
+    f.write(f'- {now} · armadilha · Tipos usam contagem de quartos quando existente; temporadas sem preço do tipo não geram pacote; checkout gravado permanece intacto e checkout_real fica separado.\\n')
+    f.write(f'- {now} · fato · Testes de inventário e tarifas passaram integralmente na primeira rodada. Falha de autenticação em test_basico vem da chamada pública /api/mensagens ainda ausente, não da checagem X-Token.\\n')
+PY" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 0ms:
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+from datetime import datetime
+root=Path('longrun/2026-10-05-reservas-v1')
+now=datetime.now().strftime('%Y-%m-%d %H:%M')
+(root/'state.md').write_text(f'''# Estado — atualizado {now}
+
+## Funciona
+- Implementação parcial v0.2.0: ./reserva serve imprime PORTA, aceita --porta/--host/--dados e usa ThreadingHTTPServer; padrão 127.0.0.1.
+- SQLite persistente em --dados/reserva.sqlite3; cópia de exemplos/pousada.json se faltar; listas semeadas uma vez e escalares relidos no início.
+- X-Token antes de validação; saúde/versão, tipos com unidades efetivas, disponibilidade, validação de estadia, temporadas, pacote de baixa, desconto e sinal com Decimal/ROUND_HALF_UP.
+- Hóspedes: criação, telefone normalizado, duplicidade e leitura de dados inicial. Reservas: criação serializada, listagem/filtros, atualização, sinal, cancelamento básico, check-in/out e no-show; bloqueios/fechamentos com conflitos; dia e ocupação mensal.
+- Inventário e tarifas: todos os testes dessas duas áreas passam, incluindo concorrência e persistência no reinício. README preservado e seção Deploy na VPS adicionada, explicitando entrega Docker pendente.
+- Verificação final deste ciclo: 33 passed / 65 failed em 25.92s; LIMITES OK (98 testes, hash 784f3067f9b5210b). Não concluído.
+
+## Falta
+- Conversa/FAQ persistidos, fila humana, espera/ofertas, tarefas de lembrete/pré-check-in/pós-estadia; completar cancelamento com esses efeitos.
+- Cadastros restantes e edição/busca de hóspedes, LGPD completo (a leitura inicial de dados ainda não inclui mensagens), Raio-X, backup/restaurar.
+- iCal, Evolution e Telegram (somente falsos locais nos testes); Dockerfile/compose/.env.exemplo; páginas em web/ ainda ausentes.
+- test_rotas_da_equipe_exigem_token falha na rota pública /api/mensagens ainda ausente; checagens de token já funcionam. Não foi identificado conflito teste/spec.
+
+## Como retomar
+1. Ler goal → state → plan → canal → fim de progress/failures. Spec e conftest já lidos integralmente neste ciclo.
+2. Começar conversa e ciclo; usar Store e transações existentes. Não alterar contrato/testes nem commitar.
+3. Verificar:
+"'```sh
+python3 -m pytest -q tests/ > /tmp/reserva-pytest.log 2>&1; tail -n 30 /tmp/reserva-pytest.log
+bash longrun/2026-10-05-reservas-v1/verificar-limites.sh
+```
+Logs deste ciclo: /tmp/reserva-pytest-ciclo1-final.log e /tmp/reserva-limites-ciclo1.log (temporários).
+'"''')
+with (root/'progress.md').open('a') as f:
+    f.write(f'| {now} | Base SQLite/auth, inventário/tarifas, reservas/ciclo básico, bloqueios, dia/ocupação, README Deploy; 33 passed / 65 failed; LIMITES OK | sem commit (loop externo) | parcial | — | 0 |\\n')
+with (root/'failures.md').open('a') as f:
+    f.write(f'| {now} | Suíte inicial: 66 falhas por funcionalidades ausentes, incluindo README Deploy | Implementar base/inventário/tarifas e acrescentar seção sem remover conteúdo | Final 33 passed / 65 failed; funcionalidades restantes no state/plan, nenhum conflito identificado | infra (implementação incompleta) |\\n')
+p=Path('FALHAS.md')
+s=p.read_text(); marker='|---|---|---|---|\\n'
+s=s.replace(marker,marker+f'| {now} | README não tinha seção Deploy na VPS exigida | Acrescentar seção preservando descrição e Como rodar; teste aprovado | infra |\\n',1)
+p.write_text(s)
+PY
+bash longrun/2026-10-05-reservas-v1/verificar-limites.sh | tail -n 5
+git status --short" in /home/nmaldaner/projetos/reserva-hotel
+ succeeded in 233ms:
+LIMITES OK (hash 784f3067f9b5210b, 98 testes, escopo ok, sem API/rede)
+ M FALHAS.md
+ M README.md
+ M VERSION
+ M longrun/2026-10-05-reservas-v1/canal.md
+ M longrun/2026-10-05-reservas-v1/decisions.md
+ M longrun/2026-10-05-reservas-v1/failures.md
+ M longrun/2026-10-05-reservas-v1/plan.md
+ M longrun/2026-10-05-reservas-v1/progress.md
+ M longrun/2026-10-05-reservas-v1/state.md
+?? longrun/2026-10-05-reservas-v1/ciclo-1.log
+?? longrun/2026-10-05-reservas-v1/loop.log
+?? reserva
+?? src/
+
+codex
+Ciclo encerrado com implementação parcial: servidor, SQLite, autenticação, inventário, tarifas e operações básicas de reservas.
+
+- **33 passed / 65 failed**; inventário e tarifas passaram integralmente.
+- **LIMITES OK**.
+- Estado, plano e registros atualizados.
+- README preservado, com “Deploy na VPS” acrescentado.
+- Sem commit.
+
+Próximo ciclo: conversa persistida, lista de espera e lembretes.
+hook: Stop
+hook: Stop Completed
+tokens used
+73,858
+Ciclo encerrado com implementação parcial: servidor, SQLite, autenticação, inventário, tarifas e operações básicas de reservas.
+
+- **33 passed / 65 failed**; inventário e tarifas passaram integralmente.
+- **LIMITES OK**.
+- Estado, plano e registros atualizados.
+- README preservado, com “Deploy na VPS” acrescentado.
+- Sem commit.
+
+Próximo ciclo: conversa persistida, lista de espera e lembretes.

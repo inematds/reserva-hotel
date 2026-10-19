@@ -5,3 +5,6 @@ Não é estado da tarefa (isso vai em state/plan/progress). Preencha cedo — o 
 
 Formato: `- AAAA-MM-DD HH:MM · fato|aprendizado|glossário|armadilha · texto`
 
+- 2026-10-19 13:51 · fato · Primeira leitura integral da especificação e conftest feita; código dividido em src/domain.py (persistência/regras) e src/server.py (HTTP/rotas), executável reserva. Nenhuma integração chama rede.
+- 2026-10-19 13:51 · armadilha · Tipos usam contagem de quartos quando existente; temporadas sem preço do tipo não geram pacote; checkout gravado permanece intacto e checkout_real fica separado.
+- 2026-10-19 13:51 · fato · Testes de inventário e tarifas passaram integralmente na primeira rodada. Falha de autenticação em test_basico vem da chamada pública /api/mensagens ainda ausente, não da checagem X-Token.

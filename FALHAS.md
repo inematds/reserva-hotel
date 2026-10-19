@@ -2,6 +2,7 @@
 
 | data | o que quebrou | menor correção | prompt \| infra |
 |---|---|---|---|
+| 2026-10-19 13:52 | README não tinha seção Deploy na VPS exigida | Acrescentar seção preservando descrição e Como rodar; teste aprovado | infra |
 | 2026-10-05 | README: nada impedia o implementador de reescrever e derrubar "Como rodar no seu ambiente" (seção do dono) | `test_readme_explica_deploy` exige as duas seções; `prompt.md`/`goal.md` avisam | prompt |
 | 2026-10-05 | `verificar-limites.sh` libera `longrun/` inteiro e o hash não cobria `verificar-independente.py`: no `/goal` (sem o loop revertendo) o agente podia enfraquecer o verificador sem nada acusar | o arquivo entra no hash do `congelar.sh` e do `verificar-limites.sh` (+ `git diff --quiet` dele) | prompt |
 | 2026-10-05 | `reserva serve` podia ficar órfão: 7 testes criam `Servidor` fora de `try/finally` (mesmo bug achado no atende-clinica) | conftest: registro `SERVIDORES` + fixture `autouse` que para todos no teardown; provado com teste que falha de propósito → `pgrep` vazio | prompt |

@@ -10,7 +10,7 @@ Guia completo (landing + passo a passo): **https://inematds.github.io/reserva-ho
 
 Sistema de reservas para **uma pousada ou hotel pequeno**, em Python 3 com biblioteca padrão e SQLite: inventário por noite (tipos de quarto e quartos numerados), tarifas por temporada com pacote de baixa e desconto de reserva direta, cotação/reserva/cancelamento pela conversa (chat web e WhatsApp pela Evolution API), lembrete com pré-check-in, check-in/check-out/no-show pela equipe, lista de espera, mensagem pós-estadia com consentimento, calendários iCal para bloquear datas na Booking/Airbnb e importar o calendário delas por arquivo, origem de cada reserva, equipe pelo Telegram, cadastros, backup, LGPD e exportação mensal para o Painel de Recuperação do **Raio-X de Margem** (pacote `hotel`).
 
-**Estado (05/10/2026): planejado e validado, não implementado.** O que existe é o contrato (`docs/ESPECIFICACAO.md`), 98 testes de aceitação caixa-preta (`tests/`), a validação adversarial do plano (`docs/VALIDACAO.md`), as decisões com proposta padrão (`docs/DECISOES-ABERTAS.md`), o mapa dos vazamentos do Raio-X (`docs/MAPA-RAIO-X.md`) e a pasta de execução longa (`longrun/2026-10-05-reservas-v1/`) pronta para qualquer pessoa rodar a implementação no próprio ambiente com um agente.
+**Estado (19/10/2026): implementação parcial.** Servidor local, SQLite, autenticação, inventário, tarifas e operações básicas de reservas implementados; conversa, integrações, páginas e entrega Docker ainda pendentes. Evidências e próximos passos em `longrun/2026-10-05-reservas-v1/state.md`.
 
 ## O que o sistema faz (v1)
 
@@ -100,3 +100,14 @@ O chat do hóspede fica em `/`, a página da equipe em `/equipe` (header `X-Toke
 - `tests/` — 98 testes caixa-preta (`conftest.py` sobe o CLI, relógio fixo, servidor falso de Evolution/Telegram). Fixture em `tests/fixtures/pousada.json`; cópia em `exemplos/`.
 - `longrun/2026-10-05-reservas-v1/` — goal (nível 3+), plan, state, loop.env, prompts, `congelar.sh`, `verificar-limites.sh`, `verificar-independente.py`.
 - `FALHAS.md` — uma linha por falha (data, o que quebrou, menor correção, prompt | infra).
+
+## Deploy na VPS
+
+A entrega Docker ainda está pendente; este é o procedimento previsto para quando os arquivos e comandos estiverem implementados e validados.
+
+1. Copie `.env.exemplo` para `.env`, configure os segredos e a pousada no volume de dados. Suba com `docker compose up -d --build`. O serviço deve publicar somente a porta local `127.0.0.1:8080`, com volume persistente em `/dados`.
+2. Configure um proxy reverso com HTTPS no domínio da pousada, encaminhando para essa porta local. Confira `/api/saude` pelo proxy.
+3. Para WhatsApp, preencha `EVOLUTION_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCIA` e `WEBHOOK_SEGREDO`. Configure na Evolution o evento `MESSAGES_UPSERT`, com destino no domínio HTTPS seguido de `/webhook/evolution/<segredo>`.
+4. Para a equipe, preencha `TELEGRAM_API_URL`, `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` e `TELEGRAM_SEGREDO`. Registre pelo método `setWebhook` o endereço HTTPS terminado em `/webhook/telegram`, com `secret_token` igual a `TELEGRAM_SEGREDO`. Integrações vazias ficam desativadas.
+5. Cadastre na Booking/Airbnb o endereço do domínio seguido de `/ical/<segredo>/tipo/<tipo>.ics` ou `/ical/<segredo>/quarto/<quarto>.ics`. Para importar, baixe o arquivo `.ics` da OTA e envie pela página da equipe. O sistema não busca calendários por URL.
+6. Agende backup diário no cron com `./reserva backup --dados DIR --saida ARQ` (dentro do container: `docker compose exec -T reserva ./reserva backup --dados /dados --saida /dados/backup-diario.db`). Guarde cópias fora da VPS e valide uma restauração com o servidor parado usando `./reserva restaurar --dados DIR --entrada ARQ` antes de operar com dados reais.
