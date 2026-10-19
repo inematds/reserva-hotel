@@ -1,4 +1,4 @@
-# Estado — atualizado 2026-10-19 14:27
+# Estado — atualizado 2026-10-19 (revisão Claude pós-loop)
 
 ## Funciona
 - Implementação v0.9.0. Base ./reserva serve, PORTA, SQLite em --dados, semente única, auth, inventário por noite, tarifas Decimal, reservas e operações da estadia.
@@ -12,9 +12,11 @@
 
 - Verificação adicional reproduzível: validar-backup-online.py passou; backup com servidor ligado restaura dump integral do SQLite (incluindo conversa) e configuração, descartando escrita posterior. Aplicação permanece v0.9.0, sem mudanças neste ciclo.
 
+- Revisão pós-loop (Claude): suíte 3× 97/1 estável, LIMITES OK, `verificar-independente.py` → **INDEPENDENTE OK** (docker build + healthcheck reais). Nada de código mudou.
+
 ## Falta
 - Portão humano: test_reimportacao_substitui_e_mantem_hospedada (tests/test_ical.py:87) reutiliza UID ev1@airbnb.com mas espera importadas=1/canceladas=1. §11 exige atualizar datas sem contar importação; resultado por contrato é 0/0. Não alterar teste/spec nem contornar a identidade UID.
-- Validação independente de Docker e operação humana das páginas (nível 4); não executar download de imagem ou rede externa neste loop.
+- Operação humana das páginas `/` e `/equipe` no navegador (nível 4). Docker já validado pelo verificador independente.
 - Registro de limite do agent-browser está no canal.md: diretório de socket bloqueado; contornado com Playwright já instalado. Hub wifi/LIMITES.md fora das raízes graváveis; transcrição humana se desejada.
 
 ## Como retomar
