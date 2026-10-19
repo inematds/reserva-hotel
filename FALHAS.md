@@ -2,6 +2,8 @@
 
 | data | o que quebrou | menor correção | prompt \| infra |
 |---|---|---|---|
+| 2026-10-19 14:16 | Atendimento Telegram e avisos ausentes | Acrescentar adaptador por ambiente e compartilhar ações existentes; 16 testes de integrações aprovados | infra |
+| 2026-10-19 14:15 | Responder pela página fechava conexão: variável local action ocultava função importada | Alias team_action para operação compartilhada do atendimento | infra |
 | 2026-10-19 14:10 | Webhook Evolution e envio/reenvio da caixa de saída ausentes | Adaptador por variáveis de ambiente, deduplicação persistida e reenvio respeitando opt-out; 6 testes específicos passaram | infra |
 | 2026-10-19 | Rotas iCal ausentes | Acrescentar importação local por UID e exportação CRLF; 6 testes aprovados, 1 conflito teste/spec registrado no longrun | infra |
 | 2026-10-19 14:00 | Responder atendimento sem hóspede usava variável number inexistente | Usar telefone do atendimento; execução local do fluxo passou | infra |

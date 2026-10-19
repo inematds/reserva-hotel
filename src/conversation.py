@@ -4,6 +4,7 @@ import unicodedata
 from datetime import date, timedelta
 from .domain import Error, agora, hoje, telefone, noites
 from .integrations import send_whatsapp
+from .telegram import send as send_telegram, forward
 
 
 def norm(text):
@@ -75,6 +76,7 @@ class Conversation:
         reservation.update(status='cancelada', gratis=self.free(reservation))
         self.save('reservas', reservation)
         self.offer(reservation['tipo'])
+        send_telegram(f"Cancelada: #{reservation['id']} {day(reservation['checkin'])} a {day(reservation['checkout'])}")
         return 'Reserva cancelada' + (' sem custo.' if reservation['gratis'] else '. O sinal fica retido.')
 
     def free(self, reservation):
@@ -141,7 +143,9 @@ class Conversation:
                 guest['nao_contatar'] = True
                 self.save('hospedes', guest)
             return 'Você não vai mais receber mensagens.'
-        if any(x['telefone'] == number and x['status'] == 'aberto' for x in self.rows('atendimentos')):
+        opened = next((x for x in self.rows('atendimentos') if x['telefone'] == number and x['status'] == 'aberto'), None)
+        if opened:
+            forward(self, opened, text)
             return None
         human = any(word in normalized for word in ('atendente', 'humano', 'falar com alguem'))
         if human:
@@ -225,10 +229,14 @@ class Conversation:
         return 'Não entendi. Você pode pedir um atendente.'
 
     def human(self, number, guest, reason):
-        self.s.add(self.db, 'atendimentos', dict(telefone=number, nome=guest['nome'] if guest else None, motivo=reason, prioridade='normal', status='aberto'))
+        item = self.s.add(self.db, 'atendimentos', dict(telefone=number, nome=guest['nome'] if guest else None, motivo=reason, prioridade='normal', status='aberto'))
+        forward(self, item, reason, opening=True)
         return 'Um atendente vai ajudar você.'
 
     def confirmation(self, r):
+        kind = self.s.get(self.db, 'tipos', r['tipo'])['nome']
+        guest = self.s.get(self.db, 'hospedes', r['hospede_id'])['nome']
+        send_telegram(f"Nova reserva: #{r['id']} {day(r['checkin'])} a {day(r['checkout'])} {kind} — {guest} (direta)")
         return f"Reservado! #{r['id']} {day(r['checkin'])} a {day(r['checkout'])} — {money(r['total'])}. Sinal {money(r['sinal'])}. {self.s.config['sinal_instrucoes']}"
 
     def quote(self, number, guest, text, state):

@@ -18,3 +18,4 @@ When I correct you, or you catch yourself making a mistake: before continuing, a
 
 ## Lessons
 - Ao responder atendimento sem hóspede cadastrado, obter o telefone do próprio atendimento; verificar também esse caminho sem cadastro.
+- Ao importar uma operação em dispatch, evitar nomes usados por variáveis locais de outros ramos; usar alias específico (team_action).

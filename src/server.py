@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 from .ical import import_calendar, export_calendar
 from .conversation import Conversation
 from .integrations import evolution
+from .telegram import authorize, webhook, action as team_action
 from .management import dispatch as management
 from .reporting import report, export
 from .backup import backup, restore
@@ -23,6 +24,8 @@ def dispatch(store, db, method, path, query, body):
     if parts[0] == 'ical' and method == 'GET':
         return 200, export_calendar(store, db, parts)
     chat = Conversation(store, db)
+    if path == '/webhook/telegram' and method == 'POST':
+        return 200, webhook(chat, body)
     if path.startswith('/webhook/evolution/') and method == 'POST':
         return 200, evolution(chat, path, body)
     if path == '/api/mensagens' and method == 'POST':
@@ -39,18 +42,8 @@ def dispatch(store, db, method, path, query, body):
     if path == '/api/atendimento-humano' and method == 'GET':
         return 200, dict(fila=[a for a in store.all(db, 'atendimentos') if a['status'] == 'aberto'])
     if len(parts) == 4 and parts[1] == 'atendimento-humano' and method == 'POST':
-        item = store.get(db, 'atendimentos', parts[2])
-        if parts[3] == 'encerrar':
-            item['status'] = 'encerrado'
-            store.save(db, 'atendimentos', item)
-            state = chat.session(item['telefone'])
-            state.update(erros=0, fluxo=None)
-            chat.save('conversas', state)
-            return 200, dict(status='encerrado')
-        if parts[3] == 'responder':
-            guest = chat.guest(item['telefone']) or dict(id=None, telefone=item['telefone'], nao_contatar=chat.session(item['telefone'])['nao_contatar'])
-            chat.output(guest, 'humano', body['texto'])
-            return 200, dict(ok=True)
+        if parts[3] in ('responder', 'encerrar'):
+            return 200, team_action(chat, parts[2], parts[3], body.get('texto', ''))
     if method == 'GET' and path == '/api/saude':
         return 200, dict(ok=True, versao=(ROOT / 'VERSION').read_text().strip())
     if method == 'GET' and path == '/api/tipos':
@@ -212,6 +205,8 @@ def serve(args):
             path = urlsplit(self.path).path
             public = (self.command == 'GET' and path in ('/', '/equipe', '/api/saude', '/api/tipos', '/api/disponibilidade')) or (self.command == 'POST' and path == '/api/mensagens') or path.startswith(('/ical/', '/webhook/'))
             try:
+                if path == '/webhook/telegram':
+                    authorize(self.headers.get('X-Telegram-Bot-Api-Secret-Token', ''))
                 if not public and not hmac.compare_digest(self.headers.get('X-Token', '').encode(), str(store.config['token']).encode()):
                     raise Error(401, 'token')
                 try:
