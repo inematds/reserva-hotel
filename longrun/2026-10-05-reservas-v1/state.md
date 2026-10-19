@@ -1,11 +1,14 @@
-# Estado — atualizado 2026-10-19 (revisão Claude pós-loop)
+# Estado — atualizado 2026-10-19 15:10 (CONCLUÍDO)
+
+**Concluído:** 98/98 após corrigir o teste do iCal que reusava o UID ev1 no evento novo (contradizia a spec §11); contrato recongelado (a2729b84a50387a9), LIMITES OK, INDEPENDENTE OK com docker build + healthcheck (commit fd3b2dd).
+
 
 ## Funciona
 - Implementação v0.9.0. Base ./reserva serve, PORTA, SQLite em --dados, semente única, auth, inventário por noite, tarifas Decimal, reservas e operações da estadia.
 - Conversa persistida, FAQ, cotação/reserva/cancelamento, lembrete/pré-check-in, espera e pós-estadia com consentimento. Ofertas revalidam inventário na transação; nao_contatar impede saída e reenvio.
 - Cadastros, bloqueios/fechamentos, LGPD, Raio-X HTTP/CLI, backup/restauração ZIP e iCal por arquivo com identidade UID. Tipos inativos preservam reservas/calendários existentes.
 - Evolution e Telegram implementados por ambiente, com deduplicação, reenvio, atendimento, comandos e avisos; testes usam apenas servidores falsos locais.
-- Dockerfile, compose, .env.exemplo e .dockerignore entregues; checagem estática passa. Build/healthcheck em container ainda não executados.
+- Dockerfile, compose, .env.exemplo e .dockerignore entregues; checagem estática passa. Build/healthcheck em container executados pelo verificador independente (OK).
 - Páginas / e /equipe em web/: chat com telefone, reservas e ações de sinal/check-in/check-out/no-show/cancelar, ocupação por noite, chegadas/saídas, cadastros, bloqueios/fechamentos, resposta/encerramento de atendimento e importação iCal por arquivo. HTML/CSS/JS locais; token apenas em memória e dados exibidos como texto.
 - Suíte completa: 97 passed / 1 failed em 24.50s. LIMITES OK (98 testes, hash 784f3067f9b5210b); git diff --check sem erros; sintaxe dos dois JS aprovada. Não concluído.
 - Smoke em navegador real local: chat, login, criação de hóspede e logout; desktop 1280px/mobile 390px sem erros JS nem overflow global. Capturas /tmp/reserva-{chat,equipe}-{desktop,mobile}.png. Revisão separada estática e visual sem bloqueadores de §15; não cobre todas as operações de formulário.
