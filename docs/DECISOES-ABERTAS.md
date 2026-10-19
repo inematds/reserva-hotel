@@ -30,3 +30,7 @@ Cada item tem uma **proposta padrão já aplicada** na especificação e nos tes
 - **Crianças** pagam pessoa extra igual a adulto? Há faixa etária grátis (ex.: até 5 anos)? Hoje: contam igual (decisão 8). Mudar = ⚠.
 - No **Airbnb**, a pousada anuncia **por quarto** (um anúncio por quarto numerado) ou **por tipo**? Define qual calendário iCal cadastrar lá e se a importação é por quarto.
 - A página `/equipe` deve ser só funcional (padrão) ou já com o visual INEMA?
+
+## Resposta do dono (19/10/2026)
+
+"ok em tudo": todas as propostas padrão aceitas. Perguntas abertas ficam para depois do v1 (exemplo fictício, sem piloto real, `/equipe` só funcional). Execução: loop headless com Codex.
