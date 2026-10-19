@@ -101,7 +101,8 @@ class Store:
         return result
 
     def inventory(self, db, tipo, night):
-        units = next(t['unidades'] for t in self.tipos(db) if t['id'] == tipo)
+        kind = self.get(db, 'tipos', tipo)
+        units = sum(q['tipo'] == tipo for q in self.all(db, 'quartos')) or kind['unidades']
         occupied = sum(r['tipo'] == tipo and r['status'] in ('confirmada', 'hospedada') and r['checkin'] <= night < r['checkout'] for r in self.all(db, 'reservas'))
         blocked = sum(b['tipo'] == tipo and b['de'] <= night <= b['ate'] for b in self.all(db, 'bloqueios'))
         if any(f['de'] <= night <= f['ate'] for f in self.all(db, 'fechamentos')):

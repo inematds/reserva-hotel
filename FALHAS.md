@@ -2,6 +2,7 @@
 
 | data | o que quebrou | menor correção | prompt \| infra |
 |---|---|---|---|
+| 2026-10-19 | Rotas iCal ausentes | Acrescentar importação local por UID e exportação CRLF; 6 testes aprovados, 1 conflito teste/spec registrado no longrun | infra |
 | 2026-10-19 14:00 | Responder atendimento sem hóspede usava variável number inexistente | Usar telefone do atendimento; execução local do fluxo passou | infra |
 | 2026-10-19 14:00 | Rotas de cadastros, anonimização, Raio-X e comandos backup/restaurar ausentes | Acrescentar módulos locais sobre o Store existente; 13 testes específicos aprovados | infra |
 | 2026-10-19 13:56 | /api/mensagens e ciclo de comunicação ausentes no checkpoint anterior | Adicionar Conversation persistida e rotas locais reutilizando inventário; 25 testes de conversa/ciclo aprovados | infra |

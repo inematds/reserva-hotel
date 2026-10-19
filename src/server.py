@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
+from .ical import import_calendar, export_calendar
 from .conversation import Conversation
 from .management import dispatch as management
 from .reporting import report, export
@@ -16,6 +17,10 @@ from .domain import Store, Error, ROOT, hoje, agora, noites, telefone, decimal, 
 
 def dispatch(store, db, method, path, query, body):
     parts = path.strip('/').split('/')
+    if path == '/api/ical/importar' and method == 'POST':
+        return 200, import_calendar(store, db, body)
+    if parts[0] == 'ical' and method == 'GET':
+        return 200, export_calendar(store, db, parts)
     chat = Conversation(store, db)
     if path == '/api/mensagens' and method == 'POST':
         return 200, chat.message(body.get('telefone', ''), body.get('texto', ''))
@@ -231,9 +236,10 @@ def serve(args):
                 status, result = exc.status, exc.body
             except (ValueError, KeyError, TypeError):
                 status, result = 422, dict(erro='formato')
-            data = json.dumps(result, ensure_ascii=False).encode() if result is not None else b''
+            calendar_result = isinstance(result, str) and path.startswith('/ical/') and status == 200
+            data = result.encode() if calendar_result else (json.dumps(result, ensure_ascii=False).encode() if result is not None else b'')
             self.send_response(status)
-            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Type', 'text/calendar; charset=utf-8' if calendar_result else 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(data)))
             self.end_headers()
             self.wfile.write(data)
