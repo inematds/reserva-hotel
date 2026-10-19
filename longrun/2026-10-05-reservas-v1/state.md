@@ -1,20 +1,19 @@
-# Estado — atualizado 2026-10-19 14:06
+# Estado — atualizado 2026-10-19 14:12
 
 ## Funciona
-- Implementação parcial v0.5.0. Base ./reserva serve, PORTA, SQLite em --dados, semente única, auth, inventário, tarifas Decimal, reservas e operações da estadia preservados.
-- Conversa persistida, FAQ, cotação/reserva/cancelamento, fila humana local, lembrete/pré-check-in, espera e pós-estadia com consentimento. Ofertas revalidam inventário na transação; nao_contatar impede saída.
-- Cadastros de tipos/quartos/temporadas/estadias mínimas/FAQ/hóspedes, bloqueios/fechamentos, LGPD, Raio-X HTTP/CLI e backup/restauração ZIP consistentes.
-- iCal por arquivo: parser de linhas dobradas, datas e data-hora, DTEND opcional, idempotência por UID, atualização de datas, cancelamento de ausentes, preservação de hospedadas/finalizadas, conflitos de inventário e oferta de espera. Exportação tipo/quarto com CRLF, intervalos contíguos e segredo. Nenhuma rede.
-- Inventário mantém suporte a tipos inativos para calendários e reservas existentes; tipos ativos continuam filtrados na disponibilidade.
-- Suíte completa: 79 passed / 19 failed em 62.64s. iCal isolado: 6 passed / 1 failed (conflito teste/spec). Verificação local adicional de identidade UID, substituição por UID diferente, data-hora e calendário de tipo inativo: OK. LIMITES OK (98 testes; hash 784f3067f9b5210b). Não concluído.
+- Implementação parcial v0.6.0. Base ./reserva serve, PORTA, SQLite em --dados, semente única, auth, inventário por noite, tarifas Decimal, reservas e operações da estadia.
+- Conversa persistida, FAQ, cotação/reserva/cancelamento, fila humana local, lembrete/pré-check-in, espera e pós-estadia com consentimento. Ofertas revalidam inventário na transação; nao_contatar impede saída e reenvio.
+- Cadastros, bloqueios/fechamentos, LGPD, Raio-X HTTP/CLI, backup/restauração ZIP e iCal por arquivo com identidade UID. Tipos inativos preservam reservas/calendários existentes.
+- Evolution: segredo no webhook, filtros de eventos/grupo/fromMe, key.id persistido contra duplicação, texto simples/estendido, aviso para mídia, conversa compartilhada e envio síncrono da saída com status enviado/pendente/simulado. Tarefas reenviam pendentes anteriores à rodada. Só ambiente; testes apenas contra servidor falso local.
+- Suíte completa: 83 passed / 15 failed em 68.06s. Evolution selecionada: 6 passed. Ensaio adicional local: texto estendido, deduplicação após reinício e opt-out bloqueando reenvio OK. LIMITES OK (98 testes, hash 784f3067f9b5210b). Não concluído.
 
 ## Falta
-- Portão humano: test_reimportacao_substitui_e_mantem_hospedada (tests/test_ical.py:87) reutiliza UID ev1@airbnb.com mas espera importadas=1/canceladas=1. §11 exige atualizar datas sem contar importação: implementação retorna 0/0. Não alterar teste/spec; conflito documentado em failures.md.
-- Evolution e Telegram pelas variáveis da spec, somente testes com servidores falsos locais; saídas, reenvios, avisos, webhooks e comandos da equipe.
-- Dockerfile, compose, .env.exemplo e páginas funcionais em web/. As outras 18 falhas correspondem a integrações (14), Docker (3) e páginas (1).
+- Portão humano: test_reimportacao_substitui_e_mantem_hospedada (tests/test_ical.py:87) reutiliza UID ev1@airbnb.com mas espera importadas=1/canceladas=1. §11 exige atualizar datas sem contar importação; resultado correto por contrato é 0/0. Não alterar teste/spec.
+- Telegram: abertura/encaminhamento, respostas, encerramento, fila/chegadas/ocupação e avisos de reserva/cancelamento. As 10 falhas restantes de integrações dependem dele, incluindo test_whatsapp_reserva_e_avisa_equipe (a reserva WhatsApp já funciona).
+- Dockerfile, compose, .env.exemplo (3 falhas) e páginas funcionais em web/ (1 falha).
 
 ## Como retomar
-1. Ler goal → state → plan → canal → fim de progress/failures. Spec e tests/conftest.py lidos integralmente neste ciclo.
-2. Próxima ação útil independente do portão: integrações Evolution/Telegram. Usar Conversation.output e pontos de confirmação/cancelamento/humano. Não alterar contrato, não commitar e não acessar rede externa.
-3. Rodar python3 -m pytest -q tests/ com saída em arquivo e tail -n 30; depois bash longrun/2026-10-05-reservas-v1/verificar-limites.sh. Não marcar concluído enquanto existir falha, inclusive o portão iCal.
-Logs: /tmp/reserva-ciclo4-pytest.log e /tmp/reserva-ciclo4-ical.log. loop.log/teste-final.log/ciclo-4.log já eram arquivos do loop modificados/criados ao iniciar; não reescritos por este ciclo. README: somente linha de estado atualizada, seções existentes preservadas.
+1. Ler goal → state → plan → canal → fim de progress/failures. Spec e conftest lidos integralmente neste ciclo.
+2. Implementar Telegram por ambiente e servidor falso local. Conectar human(), ramo de atendimento aberto, confirmation() e cancel() de Conversation; compartilhar responder/encerrar existentes em server.py.
+3. Rodar suíte completa com saída em arquivo e tail -n 30; depois verificar-limites.sh. Sem commit. Não marcar concluído enquanto houver falhas.
+Logs: /tmp/reserva-ciclo5-pytest.log e /tmp/reserva-ciclo5-evolution.log. loop.log, teste-final.log e ciclo-5.log são do loop externo, não reescritos neste ciclo. README preservado, somente linha de estado atualizada.

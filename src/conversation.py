@@ -3,6 +3,7 @@ import re
 import unicodedata
 from datetime import date, timedelta
 from .domain import Error, agora, hoje, telefone, noites
+from .integrations import send_whatsapp
 
 
 def norm(text):
@@ -41,6 +42,8 @@ class Conversation:
             return None
         result = self.s.add(self.db, 'saida', dict(tipo=kind, telefone=guest['telefone'], hospede_id=guest['id'], reserva_id=reservation, texto=text, status='simulado', respondida=False, **extra))
         self.log(guest['telefone'], 'saida', text)
+        result['status'] = send_whatsapp(guest['telefone'], text)
+        self.save('saida', result)
         return result
 
     def wait(self, body):
@@ -86,6 +89,18 @@ class Conversation:
 
     def tasks(self, instant):
         today = date.fromisoformat(instant[:10])
+        retried = 0
+        # Retry only messages pending before this round; a new failure waits
+        # until the next call and cannot be counted twice in the same round.
+        for message in self.rows('saida'):
+            if message['status'] != 'pendente' or not message.get('telefone'):
+                continue
+            guest = self.guest(message['telefone'])
+            if (guest and guest['nao_contatar']) or self.session(message['telefone'])['nao_contatar']:
+                continue
+            message['status'] = send_whatsapp(message['telefone'], message['texto'])
+            self.save('saida', message)
+            retried += message['status'] == 'enviado'
         sent = 0
         for r in self.rows('reservas'):
             if not r['hospede_id']:
@@ -104,7 +119,7 @@ class Conversation:
                 text = 'Obrigado pela estadia! Venha reservar direto: ' + self.s.config['beneficio_direto']
             if kind and not any(m['tipo'] == kind and m['reserva_id'] == r['id'] for m in self.rows('saida')):
                 sent += self.output(h, kind, text, r['id']) is not None
-        return dict(enviadas=sent, reenviadas=0)
+        return dict(enviadas=sent, reenviadas=retried)
 
     def message(self, number, text):
         number = telefone(number)

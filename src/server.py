@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .ical import import_calendar, export_calendar
 from .conversation import Conversation
+from .integrations import evolution
 from .management import dispatch as management
 from .reporting import report, export
 from .backup import backup, restore
@@ -22,6 +23,8 @@ def dispatch(store, db, method, path, query, body):
     if parts[0] == 'ical' and method == 'GET':
         return 200, export_calendar(store, db, parts)
     chat = Conversation(store, db)
+    if path.startswith('/webhook/evolution/') and method == 'POST':
+        return 200, evolution(chat, path, body)
     if path == '/api/mensagens' and method == 'POST':
         return 200, chat.message(body.get('telefone', ''), body.get('texto', ''))
     if path == '/api/saida' and method == 'GET':
