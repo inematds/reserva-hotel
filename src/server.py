@@ -7,11 +7,39 @@ from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
+from .conversation import Conversation
 from .domain import Store, Error, ROOT, hoje, agora, noites, telefone, decimal, arred
 
 
 def dispatch(store, db, method, path, query, body):
     parts = path.strip('/').split('/')
+    chat = Conversation(store, db)
+    if path == '/api/mensagens' and method == 'POST':
+        return 200, chat.message(body.get('telefone', ''), body.get('texto', ''))
+    if path == '/api/saida' and method == 'GET':
+        return 200, dict(mensagens=store.all(db, 'saida'))
+    if path == '/api/espera':
+        if method == 'GET':
+            return 200, dict(espera=store.all(db, 'espera'))
+        if method == 'POST':
+            return 201, dict(id=chat.wait(body)['id'])
+    if path == '/api/tarefas/rodar' and method == 'POST':
+        return 200, chat.tasks(body.get('agora') or agora())
+    if path == '/api/atendimento-humano' and method == 'GET':
+        return 200, dict(fila=[a for a in store.all(db, 'atendimentos') if a['status'] == 'aberto'])
+    if len(parts) == 4 and parts[1] == 'atendimento-humano' and method == 'POST':
+        item = store.get(db, 'atendimentos', parts[2])
+        if parts[3] == 'encerrar':
+            item['status'] = 'encerrado'
+            store.save(db, 'atendimentos', item)
+            state = chat.session(item['telefone'])
+            state.update(erros=0, fluxo=None)
+            chat.save('conversas', state)
+            return 200, dict(status='encerrado')
+        if parts[3] == 'responder':
+            guest = chat.guest(item['telefone']) or dict(id=None, telefone=item['telefone'], nao_contatar=chat.session(number)['nao_contatar'])
+            chat.output(guest, 'humano', body['texto'])
+            return 200, dict(ok=True)
     if method == 'GET' and path == '/api/saude':
         return 200, dict(ok=True, versao=(ROOT / 'VERSION').read_text().strip())
     if method == 'GET' and path == '/api/tipos':
@@ -28,12 +56,12 @@ def dispatch(store, db, method, path, query, body):
         previous = next((h for h in store.all(db, 'hospedes') if h['telefone'] == number), None)
         if previous:
             return 200, dict(id=previous['id'])
-        guest = dict(nome=body.get('nome', ''), telefone=number, email=body.get('email'), documento=body.get('documento'), consentimento_marketing=body.get('consentimento_marketing', False), nao_contatar=False)
+        guest = dict(nome=body.get('nome', ''), telefone=number, email=body.get('email'), documento=body.get('documento'), consentimento_marketing=body.get('consentimento_marketing', False), nao_contatar=chat.session(number)['nao_contatar'])
         return 201, dict(id=store.add(db, 'hospedes', guest)['id'])
     if len(parts) == 4 and parts[1] == 'hospedes' and parts[3] == 'dados' and method == 'GET':
         guest = store.get(db, 'hospedes', parts[2])
         reservations = [store.expand(db, r) for r in store.all(db, 'reservas') if r['hospede_id'] == guest['id']]
-        return 200, dict(hospede=guest, reservas=reservations, mensagens=[])
+        return 200, dict(hospede=guest, reservas=reservations, mensagens=[{k: m[k] for k in ('direcao', 'texto', 'quando')} for m in chat.rows('mensagens') if m['telefone'] == guest['telefone']])
     if path == '/api/reservas':
         if method == 'POST':
             return 201, store.reserva(db, body)
@@ -97,6 +125,8 @@ def dispatch(store, db, method, path, query, body):
             else:
                 raise Error(404, 'rota')
             store.save(db, 'reservas', r)
+            if action in ('cancelar', 'no-show'):
+                chat.offer(r['tipo'])
             return 200, result
     if len(parts) >= 2 and parts[1] in ('bloqueios', 'fechamentos'):
         collection = parts[1]
