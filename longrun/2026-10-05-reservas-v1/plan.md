@@ -1,9 +1,9 @@
 # Plano
 
 ## Estratégia atual
-Base até iCal, Evolution e Telegram implementados. Preservar os 93 testes aprovados. Conflito iCal permanece para revisão humana; continuar itens independentes.
+Base até integrações implementada; entrega Docker passa na checagem estática. Preservar os 96 testes aprovados. Conflito iCal permanece para revisão humana; continuar páginas independentemente.
 
 ## Próximos 3 passos
-1. Entregar Dockerfile, compose e .env.exemplo conforme §20, mantendo integrações vazias e README preservado.
-2. Implementar páginas funcionais em web/: chat público e equipe com token, ocupação, operações de reservas, cadastros, fila e importação iCal por arquivo.
-3. Rodar suíte completa e limites; registrar evidências. Fecho depende também da intervenção humana no conflito iCal; não alterar contrato nem testes.
+1. Implementar chat público em web/ e rota /, com telefone, mensagens, respostas e tratamento de erros via /api/mensagens.
+2. Implementar /equipe com token, ocupação, chegadas/saídas, operações de reservas, cadastros/bloqueios, fila responder/encerrar e importação iCal por arquivo; verificar os fluxos localmente.
+3. Rodar suíte completa e limites, atualizar registros e preparar validação independente humana. Fecho depende também da resolução humana do conflito UID iCal; não alterar contrato/testes nem iniciar rede externa.

@@ -19,3 +19,5 @@ Formato: `- AAAA-MM-DD HH:MM · fato|aprendizado|glossário|armadilha · texto`
 - 2026-10-19 14:10 · armadilha · test_whatsapp_reserva_e_avisa_equipe também exige aviso Telegram: conversa WhatsApp já cria a reserva, mas o teste completo só passa após implementar o aviso da seção 19.
 - 2026-10-19 14:16 · fato · src/telegram.py implementa transporte/comandos; authorize valida segredo antes do corpo. Conversation abre/encaminha e avisa confirmação/cancelamento. telegram_messages guarda IDs da abertura e encaminhamentos; ensaio local validou resposta após reinício e opt-out.
 - 2026-10-19 14:16 · armadilha · dispatch já usa action como variável em operações de reserva; função de atendimento importada deve ter alias team_action para evitar UnboundLocalError.
+
+- 2026-10-19 14:19 · fato · Entrega Docker estática aprovada na suíte (96 passed/2 failed). .dockerignore inclui web/ quando existir, sem incluir dados, .env, .git ou testes. HEALTHCHECK usa urllib/json padrão em loopback. Nenhum container foi iniciado; test_docker.py não executa build.

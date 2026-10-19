@@ -2,6 +2,7 @@
 
 | data | o que quebrou | menor correção | prompt \| infra |
 |---|---|---|---|
+| 2026-10-19 14:19 | Dockerfile, compose e ambiente de exemplo ausentes | Adicionar entrega da seção 20 e contexto mínimo da imagem; três falhas resolvidas, suíte 96 passed / 2 failed | infra |
 | 2026-10-19 14:16 | Atendimento Telegram e avisos ausentes | Acrescentar adaptador por ambiente e compartilhar ações existentes; 16 testes de integrações aprovados | infra |
 | 2026-10-19 14:15 | Responder pela página fechava conexão: variável local action ocultava função importada | Alias team_action para operação compartilhada do atendimento | infra |
 | 2026-10-19 14:10 | Webhook Evolution e envio/reenvio da caixa de saída ausentes | Adaptador por variáveis de ambiente, deduplicação persistida e reenvio respeitando opt-out; 6 testes específicos passaram | infra |

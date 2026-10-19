@@ -8,3 +8,5 @@
 | 2026-10-19 14:06 | iCal por arquivo e calendários tipo/quarto; v0.5.0; 79 passed / 19 failed; iCal 6 passed / 1 failed (conflito UID teste/spec); verificações adicionais OK; LIMITES OK | sem commit (loop externo) | parcial, portão iCal humano | — | 0 |
 | 2026-10-19 14:12 | Evolution webhook/envios/reenvios e deduplicação persistida; v0.6.0; 83 passed / 15 failed; alvo 6 passed; ensaio local adicional OK; LIMITES OK | sem commit (loop externo) | parcial, portão iCal humano | — | 0 |
 | 2026-10-19 14:16 | Telegram atendimento/comandos/avisos, v0.7.0; 93 passed / 5 failed; 16 integrações aprovadas na suíte final; ensaio local persistência/opt-out OK; LIMITES OK | sem commit (loop externo) | parcial, portão iCal humano | — | 0 |
+
+| 2026-10-19 14:19 | Entrega Docker/compose/env/.dockerignore, v0.8.0 e estado README; 96 passed / 2 failed em 23.52s; LIMITES OK; build real não executado | sem commit (loop externo) | parcial, páginas e portão iCal humano | — | 0 |

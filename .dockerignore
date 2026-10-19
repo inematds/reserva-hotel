@@ -1,0 +1,12 @@
+# Apenas os arquivos necessários à execução entram na imagem.
+**
+!reserva
+!VERSION
+!src/
+!src/**
+!web/
+!web/**
+!exemplos/
+!exemplos/pousada.json
+**/__pycache__/
+**/*.pyc
