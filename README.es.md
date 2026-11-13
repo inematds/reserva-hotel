@@ -8,6 +8,8 @@
 
 Guía completa (landing + paso a paso): **https://inematds.github.io/reserva-hotel/guia/**
 
+🎬 Video: https://www.youtube.com/watch?v=HqaWLOahAag
+
 Sistema de reservas para **una posada u hotel pequeño**, en Python 3 con biblioteca estándar y SQLite: inventario por noche (tipos de habitación y habitaciones numeradas), tarifas por temporada con paquete de temporada baja y descuento por reserva directa, cotización/reserva/cancelación por conversación (chat web y WhatsApp mediante la Evolution API), recordatorio con pre-check-in, check-in/check-out/no-show por parte del equipo, lista de espera, mensaje posestadía con consentimiento, calendarios iCal para bloquear fechas en Booking/Airbnb e importar su calendario por archivo, origen de cada reserva, equipo por Telegram, registros, copia de seguridad, LGPD y exportación mensual al Panel de Recuperación del **Raio-X de Margem** (paquete `hotel`).
 
 **Estado (19/10/2026): sistema implementado, v0.9.0.** `python3 -m pytest -q tests/` → **98 passed**; contrato recongelado (`a2729b84a50387a9`) tras corregir la prueba de reimportación iCal que contradecía la regla de UID de la especificación; verificación independiente **INDEPENDENTE OK** (posada nunca vista + `docker build` y healthcheck reales). Servidor local, SQLite, autenticación, inventario, tarifas, reservas, conversación, recordatorios, pre-check-in, lista de espera, posestadía, registros, LGPD, Raio-X HTTP/CLI, copia de seguridad/restauración, iCal por archivo, Evolution, Telegram, chat web, página del equipo y Docker implementados. Depende del dueño: credenciales reales de Evolution/WhatsApp y de Telegram, despliegue en la VPS, datos reales de la posada y operación humana de `/` y `/equipe`. Historial de fallos en `FALHAS.md`.

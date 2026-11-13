@@ -8,6 +8,8 @@
 
 Complete guide (landing page + step by step): **https://inematds.github.io/reserva-hotel/guia/**
 
+🎬 Video: https://www.youtube.com/watch?v=HqaWLOahAag
+
 A reservation system for **a small inn or hotel**, in Python 3 with the standard library and SQLite: per-night inventory (room types and numbered rooms), seasonal rates with a low-season package and a direct-booking discount, quoting/booking/cancelling through conversation (web chat and WhatsApp via the Evolution API), a reminder with pre-check-in, check-in/check-out/no-show handled by staff, a waiting list, a post-stay message with consent, iCal calendars to block dates on Booking/Airbnb and to import their calendar by file, the origin of each booking, staff via Telegram, registries, backup, LGPD (Brazil's data protection law), and a monthly export to the Recovery Panel of **Raio-X de Margem** (`hotel` package).
 
 **Status (October 19, 2026): system implemented, v0.9.0.** `python3 -m pytest -q tests/` → **98 passed**; contract re-frozen (`a2729b84a50387a9`) after fixing the iCal re-import test that contradicted the specification's UID rule; independent verification **INDEPENDENTE OK** (a never-before-seen inn + real `docker build` and healthcheck). Local server, SQLite, authentication, inventory, rates, bookings, conversation, reminders, pre-check-in, waiting list, post-stay, registries, LGPD, Raio-X HTTP/CLI, backup/restore, iCal by file, Evolution, Telegram, web chat, staff page, and Docker are implemented. Up to the owner: real Evolution/WhatsApp and Telegram credentials, deployment on the VPS, the inn's real data, and human operation of `/` and `/equipe`. Failure history in `FALHAS.md`.
